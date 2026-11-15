@@ -1,42 +1,32 @@
-VIRTUAL CINEMATOGRAPHER V8 — ANIMATION TIMELINE STUDIO
+VIRTUAL CINEMATOGRAPHER — V9 ROOT MOTION STUDIO
 
-V8 continues from V7 and retains the adaptive desktop/tablet interface, camera controls,
-lens and depth of field, lighting studio, environment editor, GLB/GLTF import,
-embedded animation playback, and skeleton inspector.
+V9 extends V8 and retains its camera, optics, DOF, lighting, environment, character import,
+skeleton inspector, custom pose timeline, and Auto/Desktop/Tablet layout modes.
 
-New explicit interface layout switch:
-- Header selector: Auto layout / Desktop / Tablet.
-- Auto follows the browser screen and input device; Desktop and Tablet can be forced manually.
+NEW IN V9
+- Move the selected character root in X, Y, Z.
+- Set character heading (Yaw) in degrees.
+- Move by directional buttons relative to the character's current heading.
+- Reset root transform to the character's imported starting position.
+- Root position and heading are captured with each custom animation keyframe.
+- Root position and heading interpolate between custom keyframes.
+- V9 animation JSON stores root transforms and remains able to load older V8 animation JSON
+  (older files simply have no root-motion data).
 
-New custom animation timeline:
-- Capture the current local quaternion pose of every detected bone as a keyframe.
-- Add a keyframe at the current timeline time; update a keyframe at that time.
-- Scrub the custom timeline and select keyframes from the list.
-- Play custom animation with quaternion spherical interpolation (SLERP) between poses.
-- Stop, delete, and duplicate selected keyframes.
-- Set clip duration (1–30 seconds) and frame rate (24/25/30/60 fps).
-- Save/load a reusable animation project JSON.
+INSTALL
+1. Extract this ZIP on your computer.
+2. Open your GitHub repository:
+   https://github.com/ctaccc2727/MILO-MIMI-virtual-cinematographer
+3. Choose Add file -> Upload files.
+4. Upload the extracted index.html and README.txt from this V9 folder to the repository root.
+   Do NOT upload the ZIP itself.
+5. Commit changes.
+6. Wait for GitHub Pages to publish, then open:
+   https://ctaccc2727.github.io/MILO-MIMI-virtual-cinematographer/
+7. Hard refresh with Ctrl+F5.
 
-How to use:
-1. Import a rigged GLB character.
-2. Stop any embedded animation clip.
-3. Set time to 0, pose bones with Skeleton Inspector and click Add keyframe.
-4. Move the custom timeline to a later time, change bone rotations, click Add keyframe.
-5. Add at least two keyframes and click Play custom.
-6. Save animation JSON to keep the project.
-
-Important limitations:
-- Keyframes capture local bone rotations (quaternions), not mesh/object transforms or root motion.
-- The project JSON is matched to the character's bone order and names; load it with the same compatible character rig.
-- This version does not bake the custom timeline into a new GLB/GLTF file or export a standard animation clip.
-- The imported clip player and custom timeline are separate modes.
-- Performance depends on model complexity and device GPU.
-- Three.js and GLTFLoader load from jsDelivr CDN; internet access is required.
-
-GitHub Pages update:
-1. Extract this ZIP.
-2. Open the repository root.
-3. Add file -> Upload files.
-4. Upload index.html and README.txt, replacing existing versions.
-5. Commit changes. Keep .nojekyll unchanged.
-6. GitHub Pages rebuilds from main / root automatically.
+IMPORTANT
+- Use a rigged character for bone pose animation. Root movement also works for imported 3D models.
+- Root movement is scene-level positioning; it does not automatically create foot-contact or walk-cycle animation.
+- To animate travel, create custom keyframes at different times and use Play Custom.
+- This release is statically syntax-checked; it has not been physically tested on your tablet/browser in this session.

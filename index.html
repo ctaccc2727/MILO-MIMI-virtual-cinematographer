@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#10151d">
-<title>Virtual Cinematographer — V1</title>
+<title>Virtual Cinematographer — V9 Root Motion Studio</title>
 <style>
 :root{--bg:#10151d;--panel:#171f2a;--panel2:#202b38;--line:#344253;--text:#e8eef5;--muted:#91a0b2;--accent:#66c7ff;--danger:#ff7777}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:14px/1.35 Inter,system-ui,Segoe UI,Arial,sans-serif;touch-action:none}
@@ -79,7 +79,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
 <body>
 <div id="app">
 <header>
- <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V8 ANIMATION TIMELINE STUDIO</small></div>
+ <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V9 ROOT MOTION STUDIO</small></div>
  <select id="layoutMode" title="Interface layout"><option value="auto">Auto layout</option><option value="desktop">Desktop</option><option value="tablet">Tablet</option></select>
  <div id="modeSwitch">
   <button id="freeBtn" class="active">Free Camera</button>
@@ -182,8 +182,27 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
    <div class="stack" style="grid-template-columns:1fr 1fr;margin-top:8px">
     <button id="applyBoneRotation">Apply rotation</button><button id="resetBoneRotation">Reset bone</button>
    </div>
+   <div class="panelTitle" style="margin-top:16px">Root motion · character movement</div>
+   <div class="small" style="margin-bottom:8px">Move the whole character in the scene. Root position and heading are recorded with each custom animation keyframe.</div>
+   <div class="panelTitle">Position · scene units</div>
+   <div class="transformGrid">
+    <label>X<input id="rootPosX" type="number" step="0.1" value="0"></label>
+    <label>Y<input id="rootPosY" type="number" step="0.1" value="0.9"></label>
+    <label>Z<input id="rootPosZ" type="number" step="0.1" value="0"></label>
+   </div>
+   <div class="panelTitle" style="margin-top:10px">Heading · degrees</div>
+   <div class="transformGrid">
+    <label>Yaw Y<input id="rootYaw" type="number" step="5" value="0"></label>
+    <button id="applyRootTransform" style="align-self:end">Apply</button>
+    <button id="resetRootTransform" style="align-self:end">Reset root</button>
+   </div>
+   <div class="stack" style="grid-template-columns:repeat(4,1fr);margin-top:8px">
+    <button id="rootForward">↑ Forward</button><button id="rootBack">↓ Back</button>
+    <button id="rootLeft">← Left</button><button id="rootRight">Right →</button>
+   </div>
+   <div class="small" style="margin-top:7px">Arrow buttons move the character by 0.25 scene units. Use Apply for exact numeric placement.</div>
    <div class="panelTitle" style="margin-top:16px">Animation timeline · custom pose</div>
-   <div class="small" style="margin-bottom:8px">Stop the imported clip, pose the character with the bone controls above, then add keyframes. The timeline interpolates bone rotations between poses.</div>
+   <div class="small" style="margin-bottom:8px">Stop the imported clip, pose the character with the bone controls above, then add keyframes. The timeline interpolates bone rotations and character root movement between poses.</div>
    <label class="control"><span>Current time</span><strong id="customTimeLabel">0.00 s</strong></label>
    <input id="customTimeline" type="range" min="0" max="5" step="0.01" value="0">
    <label class="control"><span>Clip duration (seconds)</span><strong id="customDurationLabel">5.0</strong></label>
@@ -201,7 +220,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
     <button id="saveAnimationProject">Save animation JSON</button><button id="loadAnimationProject">Load animation JSON</button>
    </div>
    <input id="animationProjectFile" type="file" accept=".json,application/json" hidden>
-   <div class="small" style="margin-top:9px">V8 records and interpolates local bone rotations. It saves a reusable JSON animation project, not a new GLB file. Imported clips and custom keyframes are separate modes.</div>
+   <div class="small" style="margin-top:9px">V9 records and interpolates character root position, root yaw and local bone rotations. It saves a reusable JSON animation project, not a new GLB file. Imported clips and custom keyframes are separate modes.</div>
   </div>
   <div class="group">
    <div class="panelTitle">Environment studio</div>
@@ -345,7 +364,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
   </div>
  </aside>
 </div>
-<footer id="bottomBar"><span>V8 ANIMATION TIMELINE STUDIO · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
+<footer id="bottomBar"><span>V9 ROOT MOTION STUDIO · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
 </div>
 <script type="importmap">
 {
@@ -827,7 +846,7 @@ function showBoneRotation(){
  if(!selectedBone)return;
  ['x','y','z'].forEach(axis=>document.getElementById('boneRot'+axis.toUpperCase()).value=THREE.MathUtils.radToDeg(selectedBone.rotation[axis]).toFixed(1));
 }
-document.getElementById('animCharacter').onchange=e=>{selectedAnimCharacter=animatedCharacters()[Number(e.target.value)]||null;refreshAnimationClips();refreshBones()};
+document.getElementById('animCharacter').onchange=e=>{selectedAnimCharacter=animatedCharacters()[Number(e.target.value)]||null;refreshAnimationClips();refreshBones();syncRootFields()};
 document.getElementById('animClip').onchange=e=>{if(e.target.value!=='')startAnimationAction(Number(e.target.value),false)};
 document.getElementById('animPlay').onclick=()=>{if(!selectedAnimCharacter||!currentClip())return;if(!selectedAnimAction)startAnimationAction(Number(document.getElementById('animClip').value),true);else{selectedAnimAction.paused=false;selectedAnimAction.play();animIsPlaying=true}updateAnimationReadout()};
 document.getElementById('animPause').onclick=()=>{if(selectedAnimAction){selectedAnimAction.paused=true;animIsPlaying=false;updateAnimationReadout()}};
@@ -861,7 +880,7 @@ document.getElementById('animModelFile').addEventListener('change',async e=>{
   const box=new THREE.Box3().setFromObject(model),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());
   model.position.sub(center);const maxDim=Math.max(size.x,size.y,size.z)||1;model.scale.setScalar(2.5/maxDim);model.position.y+=.9;
   stage.add(model);sceneEditorObjects.push(model);selectedSceneObject=model;refreshObjectList();
-  selectedAnimCharacter=model;refreshAnimationCharacters();
+  selectedAnimCharacter=model;refreshAnimationCharacters();syncRootFields();
   toast(gltf.animations?.length?'Animated character imported':'Character imported · no clips found');
  }catch(err){console.error(err);toast('Character import failed · try self-contained GLB')}
  e.target.value='';
@@ -869,6 +888,57 @@ document.getElementById('animModelFile').addEventListener('change',async e=>{
 refreshAnimationCharacters();
 
 // V8 Custom Animation Timeline: pose snapshots, quaternion interpolation and JSON projects.
+function ensureRootBase(character=selectedAnimCharacter){
+ if(!character)return null;
+ if(!character.userData.vcRootBase)character.userData.vcRootBase={
+  position:character.position.toArray(),rotationY:character.rotation.y
+ };
+ return character.userData.vcRootBase;
+}
+function captureRootTransform(){
+ if(!selectedAnimCharacter)return null;
+ return {position:selectedAnimCharacter.position.toArray(),yaw:selectedAnimCharacter.rotation.y};
+}
+function syncRootFields(){
+ if(!selectedAnimCharacter)return;
+ ensureRootBase();
+ ['x','y','z'].forEach((axis,i)=>document.getElementById('rootPos'+axis.toUpperCase()).value=selectedAnimCharacter.position.getComponent(i).toFixed(2));
+ document.getElementById('rootYaw').value=THREE.MathUtils.radToDeg(selectedAnimCharacter.rotation.y).toFixed(1);
+}
+function applyRootTransformData(root){
+ if(!selectedAnimCharacter||!root)return;
+ if(Array.isArray(root.position)&&root.position.length===3)selectedAnimCharacter.position.set(Number(root.position[0])||0,Number(root.position[1])||0,Number(root.position[2])||0);
+ if(Number.isFinite(Number(root.yaw)))selectedAnimCharacter.rotation.y=Number(root.yaw);
+ syncRootFields();
+}
+function applyRootFields(){
+ if(!selectedAnimCharacter){toast('Import a character first');return}
+ selectedAnimCharacter.position.set(
+  Number(document.getElementById('rootPosX').value)||0,
+  Number(document.getElementById('rootPosY').value)||0,
+  Number(document.getElementById('rootPosZ').value)||0
+ );
+ selectedAnimCharacter.rotation.y=THREE.MathUtils.degToRad(Number(document.getElementById('rootYaw').value)||0);
+ syncRootFields();toast('Character root transform applied');
+}
+document.getElementById('applyRootTransform').onclick=applyRootFields;
+document.getElementById('resetRootTransform').onclick=()=>{
+ if(!selectedAnimCharacter)return;
+ const base=ensureRootBase();
+ selectedAnimCharacter.position.fromArray(base.position);selectedAnimCharacter.rotation.y=base.rotationY;
+ syncRootFields();toast('Character returned to its imported position');
+};
+function moveCharacterRoot(dx,dz){
+ if(!selectedAnimCharacter){toast('Import a character first');return}
+ const forward=new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0),selectedAnimCharacter.rotation.y);
+ const right=new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,1,0),selectedAnimCharacter.rotation.y);
+ selectedAnimCharacter.position.addScaledVector(right,dx*.25).addScaledVector(forward,dz*.25);
+ syncRootFields();
+}
+document.getElementById('rootForward').onclick=()=>moveCharacterRoot(0,1);
+document.getElementById('rootBack').onclick=()=>moveCharacterRoot(0,-1);
+document.getElementById('rootLeft').onclick=()=>moveCharacterRoot(-1,0);
+document.getElementById('rootRight').onclick=()=>moveCharacterRoot(1,0);
 function customBones(){const out=[];selectedAnimCharacter?.traverse(o=>{if(o.isBone)out.push(o)});return out}
 function captureCustomPose(){return customBones().map((b,index)=>({index,name:b.name||'',q:[b.quaternion.x,b.quaternion.y,b.quaternion.z,b.quaternion.w]}))}
 function applyCustomPose(pose){
@@ -883,10 +953,16 @@ function applyCustomPoseAt(t){
  if(!customKeyframes.length)return;
  const frames=[...customKeyframes].sort((a,b)=>a.time-b.time);
  let a=frames[0],b=frames[frames.length-1];
- if(t<=a.time){applyCustomPose(a.pose);return}if(t>=b.time){applyCustomPose(b.pose);return}
+ if(t<=a.time){applyCustomPose(a.pose);if(a.root)applyRootTransformData(a.root);return}if(t>=b.time){applyCustomPose(b.pose);if(b.root)applyRootTransformData(b.root);return}
  for(let i=0;i<frames.length-1;i++){if(t>=frames[i].time&&t<=frames[i+1].time){a=frames[i];b=frames[i+1];break}}
  const span=Math.max(1e-6,b.time-a.time),alpha=(t-a.time)/span,poseA=new Map(a.pose.map(p=>[p.index,p]));
- const poseB=new Map(b.pose.map(p=>[p.index,p]));const mixed=[];
+ const poseB=new Map(b.pose.map(p=>[p.index,p]));
+ if(a.root&&b.root&&Array.isArray(a.root.position)&&Array.isArray(b.root.position)){
+  const p=a.root.position.map((v,i)=>THREE.MathUtils.lerp(Number(v)||0,Number(b.root.position[i])||0,alpha));
+  let dy=THREE.MathUtils.euclideanModulo((Number(b.root.yaw)||0)-(Number(a.root.yaw)||0)+Math.PI,Math.PI*2)-Math.PI;
+  applyRootTransformData({position:p,yaw:(Number(a.root.yaw)||0)+dy*alpha});
+ }
+ const mixed=[];
  for(const [index,pa] of poseA){const pb=poseB.get(index);if(!pb){mixed.push(pa);continue}const qa=new THREE.Quaternion(...pa.q),qb=new THREE.Quaternion(...pb.q);qa.slerp(qb,alpha);mixed.push({index,name:pa.name,q:[qa.x,qa.y,qa.z,qa.w]})}
  applyCustomPose(mixed);
 }
@@ -903,9 +979,9 @@ function storeKeyframe(update=false){
  if(selectedAnimAction){selectedAnimAction.paused=true;animIsPlaying=false;}
  selectedAnimCharacter.userData.animationMixer?.stopAllAction();customTimelineActive=true;customPlaying=false;
  const time=snapTime(customTime),existing=customKeyframes.find(k=>Math.abs(k.time-time)<1e-4);
- if(existing&&update){existing.pose=captureCustomPose();selectedKeyframeId=existing.id;toast('Keyframe updated')}
+ if(existing&&update){existing.pose=captureCustomPose();existing.root=captureRootTransform();selectedKeyframeId=existing.id;toast('Keyframe updated')}
  else if(existing){toast('A keyframe already exists here · use Update at time');return}
- else{const frame={id:++customFrameId,time,pose:captureCustomPose()};customKeyframes.push(frame);selectedKeyframeId=frame.id;toast('Keyframe added at '+time.toFixed(2)+' s')}
+ else{const frame={id:++customFrameId,time,pose:captureCustomPose(),root:captureRootTransform()};customKeyframes.push(frame);selectedKeyframeId=frame.id;toast('Keyframe added at '+time.toFixed(2)+' s')}
  renderKeyframeList();
 }
 document.getElementById('addKeyframe').onclick=()=>storeKeyframe(false);
@@ -915,7 +991,7 @@ document.getElementById('customDuration').oninput=e=>{customDuration=Number(e.ta
 document.getElementById('customPlay').onclick=()=>{if(!selectedAnimCharacter){toast('Import a rigged character first');return}if(customKeyframes.length<2){toast('Add at least two keyframes');return}selectedAnimCharacter.userData.animationMixer?.stopAllAction();customTimelineActive=true;if(customTime>=customDuration)setCustomTime(0);customPlaying=true;toast('Custom animation playing')};
 document.getElementById('customStop').onclick=()=>{customPlaying=false;setCustomTime(0);toast('Custom timeline stopped')};
 document.getElementById('deleteKeyframe').onclick=()=>{if(selectedKeyframeId===null)return;customKeyframes=customKeyframes.filter(k=>k.id!==selectedKeyframeId);selectedKeyframeId=null;renderKeyframeList();toast('Keyframe deleted')};
-document.getElementById('duplicateKeyframe').onclick=()=>{const f=customKeyframes.find(k=>k.id===selectedKeyframeId);if(!f)return;const next=snapTime(Math.min(customDuration,f.time+1/(Number(document.getElementById('customFPS').value)||24)));if(customKeyframes.some(k=>Math.abs(k.time-next)<1e-4)){toast('No free frame at the next frame position');return}const copy={id:++customFrameId,time:next,pose:JSON.parse(JSON.stringify(f.pose))};customKeyframes.push(copy);selectedKeyframeId=copy.id;customKeyframes.sort((a,b)=>a.time-b.time);setCustomTime(next);renderKeyframeList();toast('Keyframe duplicated')};
+document.getElementById('duplicateKeyframe').onclick=()=>{const f=customKeyframes.find(k=>k.id===selectedKeyframeId);if(!f)return;const next=snapTime(Math.min(customDuration,f.time+1/(Number(document.getElementById('customFPS').value)||24)));if(customKeyframes.some(k=>Math.abs(k.time-next)<1e-4)){toast('No free frame at the next frame position');return}const copy={id:++customFrameId,time:next,pose:JSON.parse(JSON.stringify(f.pose)),root:f.root?JSON.parse(JSON.stringify(f.root)):null};customKeyframes.push(copy);selectedKeyframeId=copy.id;customKeyframes.sort((a,b)=>a.time-b.time);setCustomTime(next);renderKeyframeList();toast('Keyframe duplicated')};
 function updateCustomTimeline(dt){
  if(!customPlaying||!customKeyframes.length)return;
  customTimelineActive=true;customTime+=dt;if(customTime>=customDuration){customTime=customDuration;customPlaying=false}
@@ -923,8 +999,8 @@ function updateCustomTimeline(dt){
 }
 document.getElementById('saveAnimationProject').onclick=()=>{
  if(!selectedAnimCharacter){toast('Import a rigged character first');return}
- const data={format:'VirtualCinematographerAnimation',version:8,characterName:selectedAnimCharacter.name,duration:customDuration,fps:Number(document.getElementById('customFPS').value),boneNames:customBones().map((b,index)=>({index,name:b.name||''})),keyframes:customKeyframes.map(k=>({time:k.time,pose:k.pose}))};
- const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=(selectedAnimCharacter.name||'character')+'_animation_v8.json';a.click();URL.revokeObjectURL(url);toast('Animation project saved as JSON');
+ const data={format:'VirtualCinematographerAnimation',version:9,characterName:selectedAnimCharacter.name,duration:customDuration,fps:Number(document.getElementById('customFPS').value),boneNames:customBones().map((b,index)=>({index,name:b.name||''})),keyframes:customKeyframes.map(k=>({time:k.time,pose:k.pose,root:k.root||null}))};
+ const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=(selectedAnimCharacter.name||'character')+'_animation_v9.json';a.click();URL.revokeObjectURL(url);toast('Animation project saved as JSON');
 };
 document.getElementById('loadAnimationProject').onclick=()=>document.getElementById('animationProjectFile').click();
 document.getElementById('animationProjectFile').addEventListener('change',async e=>{
@@ -932,7 +1008,7 @@ document.getElementById('animationProjectFile').addEventListener('change',async 
  try{const data=JSON.parse(await file.text());if(data.format!=='VirtualCinematographerAnimation'||!Array.isArray(data.keyframes))throw new Error('Invalid animation project');if(!selectedAnimCharacter)throw new Error('Import the matching character first');
   const bones=customBones();const mismatches=(data.boneNames||[]).filter(x=>!bones[x.index]||(x.name&&bones[x.index].name&&x.name!==bones[x.index].name));if(mismatches.length)throw new Error('The loaded character skeleton does not match this animation');
   customDuration=Math.max(1,Math.min(30,Number(data.duration)||5));document.getElementById('customDuration').value=customDuration;document.getElementById('customDurationLabel').textContent=customDuration.toFixed(1);document.getElementById('customTimeline').max=customDuration;document.getElementById('customFPS').value=String([24,25,30,60].includes(Number(data.fps))?Number(data.fps):24);
-  customKeyframes=data.keyframes.map((k,i)=>({id:++customFrameId,time:Number(k.time)||0,pose:k.pose}));selectedKeyframeId=customKeyframes[0]?.id??null;customPlaying=false;customTimelineActive=true;setCustomTime(0);renderKeyframeList();toast('Animation project loaded');
+  customKeyframes=data.keyframes.map((k,i)=>({id:++customFrameId,time:Number(k.time)||0,pose:k.pose,root:k.root||null}));selectedKeyframeId=customKeyframes[0]?.id??null;customPlaying=false;customTimelineActive=true;setCustomTime(0);renderKeyframeList();toast('Animation project loaded');
  }catch(err){console.error(err);toast('Could not load project: '+err.message)}e.target.value='';
 });
 
