@@ -54,6 +54,9 @@ kbd{background:#0b1118;border:1px solid var(--line);border-radius:4px;padding:2p
 input[type=range]{width:100%;accent-color:var(--accent)}
 #toast{position:absolute;left:50%;top:16px;transform:translateX(-50%);padding:8px 12px;background:#101923ee;border:1px solid var(--line);border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:8}
 #toast.show{opacity:1}
+body.force-tablet #workspace{grid-template-columns:210px minmax(0,1fr)}body.force-tablet #rightPanel{display:none}body.force-tablet #leftPanel{display:block}body.force-tablet #touchControls{display:block}body.force-tablet #desktopControls{display:none}
+body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}body.force-desktop #leftPanel,body.force-desktop #rightPanel{display:block}body.force-desktop #touchControls{display:none}body.force-desktop #desktopControls{display:flex}
+#layoutMode{max-width:125px;padding:7px 8px;font-size:11px}
 @media(max-width:900px){
  #workspace{grid-template-columns:190px minmax(0,1fr)}
  #rightPanel{display:none}
@@ -76,7 +79,8 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 <body>
 <div id="app">
 <header>
- <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V7 CHARACTER ANIMATION STUDIO</small></div>
+ <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V8 ANIMATION TIMELINE STUDIO</small></div>
+ <select id="layoutMode" title="Interface layout"><option value="auto">Auto layout</option><option value="desktop">Desktop</option><option value="tablet">Tablet</option></select>
  <div id="modeSwitch">
   <button id="freeBtn" class="active">Free Camera</button>
   <button id="cineBtn">Cinematic</button>
@@ -178,7 +182,26 @@ input[type=range]{width:100%;accent-color:var(--accent)}
    <div class="stack" style="grid-template-columns:1fr 1fr;margin-top:8px">
     <button id="applyBoneRotation">Apply rotation</button><button id="resetBoneRotation">Reset bone</button>
    </div>
-   <div class="small" style="margin-top:9px">Manual bone rotation is a preview adjustment. Playing a clip may override it. This stage does not create new keyframes or export edited animation.</div>
+   <div class="panelTitle" style="margin-top:16px">Animation timeline · custom pose</div>
+   <div class="small" style="margin-bottom:8px">Stop the imported clip, pose the character with the bone controls above, then add keyframes. The timeline interpolates bone rotations between poses.</div>
+   <label class="control"><span>Current time</span><strong id="customTimeLabel">0.00 s</strong></label>
+   <input id="customTimeline" type="range" min="0" max="5" step="0.01" value="0">
+   <label class="control"><span>Clip duration (seconds)</span><strong id="customDurationLabel">5.0</strong></label>
+   <input id="customDuration" type="range" min="1" max="30" step="0.5" value="5">
+   <label class="control"><span>Frame rate</span></label>
+   <select id="customFPS" class="full"><option value="24">24 fps</option><option value="25">25 fps</option><option value="30">30 fps</option><option value="60">60 fps</option></select>
+   <div class="stack" style="grid-template-columns:repeat(2,1fr);margin-top:9px">
+    <button id="addKeyframe">＋ Add keyframe</button><button id="updateKeyframe">Update at time</button>
+    <button id="customPlay">▶ Play custom</button><button id="customStop">■ Stop custom</button>
+    <button id="deleteKeyframe">Delete selected</button><button id="duplicateKeyframe">Duplicate selected</button>
+   </div>
+   <div class="control"><span>Keyframes</span><strong id="keyframeCount">0</strong></div>
+   <div id="keyframeList" class="stack" style="max-height:150px;overflow:auto"></div>
+   <div class="stack" style="grid-template-columns:1fr 1fr;margin-top:9px">
+    <button id="saveAnimationProject">Save animation JSON</button><button id="loadAnimationProject">Load animation JSON</button>
+   </div>
+   <input id="animationProjectFile" type="file" accept=".json,application/json" hidden>
+   <div class="small" style="margin-top:9px">V8 records and interpolates local bone rotations. It saves a reusable JSON animation project, not a new GLB file. Imported clips and custom keyframes are separate modes.</div>
   </div>
   <div class="group">
    <div class="panelTitle">Environment studio</div>
@@ -322,7 +345,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   </div>
  </aside>
 </div>
-<footer id="bottomBar"><span>V7 CHARACTER ANIMATION STUDIO · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
+<footer id="bottomBar"><span>V8 ANIMATION TIMELINE STUDIO · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
 </div>
 <script type="importmap">
 {
@@ -524,7 +547,8 @@ function loop(now){
  requestAnimationFrame(loop);
  const dt=Math.min((now-lastTime)/1000,.05);lastTime=now;
  updateCamera(dt);
- sceneEditorObjects.forEach(o=>{if(o.userData.animationMixer)o.userData.animationMixer.update(dt)});
+ sceneEditorObjects.forEach(o=>{if(o.userData.animationMixer && !(o===selectedAnimCharacter && customTimelineActive))o.userData.animationMixer.update(dt)});
+ if(typeof updateCustomTimeline==='function')updateCustomTimeline(dt);
  if(typeof updateAnimationReadout==='function')updateAnimationReadout();
  if(composer){
   try{composer.render()}
@@ -757,6 +781,7 @@ refreshObjectList();
 // Character Animation Studio
 let selectedAnimCharacter=null,selectedAnimAction=null,selectedBone=null,selectedBoneRest=null;
 let animIsPlaying=false,animScrubbing=false;
+let customTimelineActive=false,customPlaying=false,customTime=0,customDuration=5,customKeyframes=[],selectedKeyframeId=null,customFrameId=0;
 function animatedCharacters(){return sceneEditorObjects.filter(o=>o.userData.animationMixer)}
 function refreshAnimationCharacters(){
  const select=document.getElementById('animCharacter'),current=selectedAnimCharacter,chars=animatedCharacters();
@@ -775,6 +800,7 @@ function refreshAnimationClips(){
  select.value='0';startAnimationAction(0,false);
 }
 function startAnimationAction(index,play=true){
+ customPlaying=false;customTimelineActive=false;
  if(!selectedAnimCharacter)return;
  const clip=(selectedAnimCharacter.userData.animationClips||[])[index];if(!clip)return;
  const mixer=selectedAnimCharacter.userData.animationMixer;mixer.stopAllAction();
@@ -819,6 +845,7 @@ document.getElementById('animTimeline').oninput=e=>{
 document.getElementById('boneSelect').onchange=e=>{selectedBone=boneAt(Number(e.target.value));selectedBoneRest=selectedBone?.quaternion.clone()||null;showBoneRotation()};
 document.getElementById('applyBoneRotation').onclick=()=>{
  if(!selectedBone)return;
+ if(selectedAnimAction){selectedAnimAction.paused=true;animIsPlaying=false;}
  selectedBone.rotation.set(...['X','Y','Z'].map(a=>THREE.MathUtils.degToRad(Number(document.getElementById('boneRot'+a).value)||0)));
 };
 document.getElementById('resetBoneRotation').onclick=()=>{if(selectedBone&&selectedBoneRest){selectedBone.quaternion.copy(selectedBoneRest);showBoneRotation()}};
@@ -840,6 +867,74 @@ document.getElementById('animModelFile').addEventListener('change',async e=>{
  e.target.value='';
 });
 refreshAnimationCharacters();
+
+// V8 Custom Animation Timeline: pose snapshots, quaternion interpolation and JSON projects.
+function customBones(){const out=[];selectedAnimCharacter?.traverse(o=>{if(o.isBone)out.push(o)});return out}
+function captureCustomPose(){return customBones().map((b,index)=>({index,name:b.name||'',q:[b.quaternion.x,b.quaternion.y,b.quaternion.z,b.quaternion.w]}))}
+function applyCustomPose(pose){
+ if(!selectedAnimCharacter||!Array.isArray(pose))return;
+ const bones=customBones();
+ pose.forEach(p=>{const b=bones[p.index];if(b&&(!p.name||!b.name||p.name===b.name)&&Array.isArray(p.q)&&p.q.length===4)b.quaternion.set(p.q[0],p.q[1],p.q[2],p.q[3]).normalize()});
+ const idx=selectedBone?bones.indexOf(selectedBone):-1;if(idx>=0)showBoneRotation();
+}
+function snapTime(t){const fps=Number(document.getElementById('customFPS').value)||24;return Math.max(0,Math.min(customDuration,Math.round(t*fps)/fps))}
+function setCustomTime(t,apply=true){customTime=snapTime(t);document.getElementById('customTimeline').value=customTime;document.getElementById('customTimeLabel').textContent=customTime.toFixed(2)+' s';if(apply)applyCustomPoseAt(customTime)}
+function applyCustomPoseAt(t){
+ if(!customKeyframes.length)return;
+ const frames=[...customKeyframes].sort((a,b)=>a.time-b.time);
+ let a=frames[0],b=frames[frames.length-1];
+ if(t<=a.time){applyCustomPose(a.pose);return}if(t>=b.time){applyCustomPose(b.pose);return}
+ for(let i=0;i<frames.length-1;i++){if(t>=frames[i].time&&t<=frames[i+1].time){a=frames[i];b=frames[i+1];break}}
+ const span=Math.max(1e-6,b.time-a.time),alpha=(t-a.time)/span,poseA=new Map(a.pose.map(p=>[p.index,p]));
+ const poseB=new Map(b.pose.map(p=>[p.index,p]));const mixed=[];
+ for(const [index,pa] of poseA){const pb=poseB.get(index);if(!pb){mixed.push(pa);continue}const qa=new THREE.Quaternion(...pa.q),qb=new THREE.Quaternion(...pb.q);qa.slerp(qb,alpha);mixed.push({index,name:pa.name,q:[qa.x,qa.y,qa.z,qa.w]})}
+ applyCustomPose(mixed);
+}
+function renderKeyframeList(){
+ const list=document.getElementById('keyframeList');list.innerHTML='';
+ [...customKeyframes].sort((a,b)=>a.time-b.time).forEach(frame=>{
+  const btn=document.createElement('button');btn.textContent='◆ '+frame.time.toFixed(2)+' s';btn.style.textAlign='left';btn.classList.toggle('active',frame.id===selectedKeyframeId);
+  btn.onclick=()=>{selectedKeyframeId=frame.id;customPlaying=false;setCustomTime(frame.time);renderKeyframeList()};list.appendChild(btn);
+ });
+ document.getElementById('keyframeCount').textContent=String(customKeyframes.length);
+}
+function storeKeyframe(update=false){
+ if(!selectedAnimCharacter){toast('Import a rigged character first');return}
+ if(selectedAnimAction){selectedAnimAction.paused=true;animIsPlaying=false;}
+ selectedAnimCharacter.userData.animationMixer?.stopAllAction();customTimelineActive=true;customPlaying=false;
+ const time=snapTime(customTime),existing=customKeyframes.find(k=>Math.abs(k.time-time)<1e-4);
+ if(existing&&update){existing.pose=captureCustomPose();selectedKeyframeId=existing.id;toast('Keyframe updated')}
+ else if(existing){toast('A keyframe already exists here · use Update at time');return}
+ else{const frame={id:++customFrameId,time,pose:captureCustomPose()};customKeyframes.push(frame);selectedKeyframeId=frame.id;toast('Keyframe added at '+time.toFixed(2)+' s')}
+ renderKeyframeList();
+}
+document.getElementById('addKeyframe').onclick=()=>storeKeyframe(false);
+document.getElementById('updateKeyframe').onclick=()=>storeKeyframe(true);
+document.getElementById('customTimeline').oninput=e=>{customPlaying=false;customTimelineActive=true;setCustomTime(Number(e.target.value));};
+document.getElementById('customDuration').oninput=e=>{customDuration=Number(e.target.value);document.getElementById('customDurationLabel').textContent=customDuration.toFixed(1);const tl=document.getElementById('customTimeline');tl.max=customDuration;customKeyframes.forEach(k=>{if(k.time>customDuration)k.time=customDuration});customKeyframes.sort((a,b)=>a.time-b.time);renderKeyframeList();setCustomTime(Math.min(customTime,customDuration))};
+document.getElementById('customPlay').onclick=()=>{if(!selectedAnimCharacter){toast('Import a rigged character first');return}if(customKeyframes.length<2){toast('Add at least two keyframes');return}selectedAnimCharacter.userData.animationMixer?.stopAllAction();customTimelineActive=true;if(customTime>=customDuration)setCustomTime(0);customPlaying=true;toast('Custom animation playing')};
+document.getElementById('customStop').onclick=()=>{customPlaying=false;setCustomTime(0);toast('Custom timeline stopped')};
+document.getElementById('deleteKeyframe').onclick=()=>{if(selectedKeyframeId===null)return;customKeyframes=customKeyframes.filter(k=>k.id!==selectedKeyframeId);selectedKeyframeId=null;renderKeyframeList();toast('Keyframe deleted')};
+document.getElementById('duplicateKeyframe').onclick=()=>{const f=customKeyframes.find(k=>k.id===selectedKeyframeId);if(!f)return;const next=snapTime(Math.min(customDuration,f.time+1/(Number(document.getElementById('customFPS').value)||24)));if(customKeyframes.some(k=>Math.abs(k.time-next)<1e-4)){toast('No free frame at the next frame position');return}const copy={id:++customFrameId,time:next,pose:JSON.parse(JSON.stringify(f.pose))};customKeyframes.push(copy);selectedKeyframeId=copy.id;customKeyframes.sort((a,b)=>a.time-b.time);setCustomTime(next);renderKeyframeList();toast('Keyframe duplicated')};
+function updateCustomTimeline(dt){
+ if(!customPlaying||!customKeyframes.length)return;
+ customTimelineActive=true;customTime+=dt;if(customTime>=customDuration){customTime=customDuration;customPlaying=false}
+ document.getElementById('customTimeline').value=customTime;document.getElementById('customTimeLabel').textContent=customTime.toFixed(2)+' s';applyCustomPoseAt(customTime);
+}
+document.getElementById('saveAnimationProject').onclick=()=>{
+ if(!selectedAnimCharacter){toast('Import a rigged character first');return}
+ const data={format:'VirtualCinematographerAnimation',version:8,characterName:selectedAnimCharacter.name,duration:customDuration,fps:Number(document.getElementById('customFPS').value),boneNames:customBones().map((b,index)=>({index,name:b.name||''})),keyframes:customKeyframes.map(k=>({time:k.time,pose:k.pose}))};
+ const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=(selectedAnimCharacter.name||'character')+'_animation_v8.json';a.click();URL.revokeObjectURL(url);toast('Animation project saved as JSON');
+};
+document.getElementById('loadAnimationProject').onclick=()=>document.getElementById('animationProjectFile').click();
+document.getElementById('animationProjectFile').addEventListener('change',async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ try{const data=JSON.parse(await file.text());if(data.format!=='VirtualCinematographerAnimation'||!Array.isArray(data.keyframes))throw new Error('Invalid animation project');if(!selectedAnimCharacter)throw new Error('Import the matching character first');
+  const bones=customBones();const mismatches=(data.boneNames||[]).filter(x=>!bones[x.index]||(x.name&&bones[x.index].name&&x.name!==bones[x.index].name));if(mismatches.length)throw new Error('The loaded character skeleton does not match this animation');
+  customDuration=Math.max(1,Math.min(30,Number(data.duration)||5));document.getElementById('customDuration').value=customDuration;document.getElementById('customDurationLabel').textContent=customDuration.toFixed(1);document.getElementById('customTimeline').max=customDuration;document.getElementById('customFPS').value=String([24,25,30,60].includes(Number(data.fps))?Number(data.fps):24);
+  customKeyframes=data.keyframes.map((k,i)=>({id:++customFrameId,time:Number(k.time)||0,pose:k.pose}));selectedKeyframeId=customKeyframes[0]?.id??null;customPlaying=false;customTimelineActive=true;setCustomTime(0);renderKeyframeList();toast('Animation project loaded');
+ }catch(err){console.error(err);toast('Could not load project: '+err.message)}e.target.value='';
+});
 
 const codeMap={KeyW:'w',ArrowUp:'w',KeyA:'a',ArrowLeft:'a',KeyS:'s',ArrowDown:'s',KeyD:'d',ArrowRight:'d',KeyQ:'q',KeyE:'e',ShiftLeft:'shift',ShiftRight:'shift'};
 window.addEventListener('keydown',e=>{
@@ -883,6 +978,10 @@ function bindJoystick(id,which){
 bindJoystick('joyMove','move');bindJoystick('joyLook','look');
 function holdButton(id,val){const el=document.getElementById(id);const on=e=>{e.preventDefault();vertical=val},off=()=>{if(vertical===val)vertical=0};el.addEventListener('pointerdown',on);el.addEventListener('pointerup',off);el.addEventListener('pointercancel',off);el.addEventListener('lostpointercapture',off)}
 holdButton('upBtn',1);holdButton('downBtn',-1);
+const layoutMode=document.getElementById('layoutMode');
+function setLayoutMode(mode){document.body.classList.toggle('force-desktop',mode==='desktop');document.body.classList.toggle('force-tablet',mode==='tablet');layoutMode.value=mode;document.getElementById('deviceLabel').textContent=mode==='auto'?(matchMedia('(max-width:650px)').matches?'Tablet / Mobile layout':'Desktop / Adaptive layout'):(mode==='tablet'?'Tablet layout':'Desktop layout');setTimeout(()=>{renderer.setSize(viewport.clientWidth,viewport.clientHeight);camera.aspect=viewport.clientWidth/viewport.clientHeight;camera.updateProjectionMatrix()},60)}
+layoutMode.addEventListener('change',e=>setLayoutMode(e.target.value));
+setLayoutMode('auto');
 document.getElementById('inputType').textContent=matchMedia('(pointer:coarse)').matches?'Touch':'Mouse / Keyboard';
 document.getElementById('deviceLabel').textContent=matchMedia('(max-width:650px)').matches?'Tablet / Mobile layout':'Desktop / Adaptive layout';
 if(matchMedia('(pointer:coarse)').matches)document.getElementById('viewportHint').textContent='Left stick: move · Right stick: look · ＋ / －: height';
