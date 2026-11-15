@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#10151d">
-<title>Virtual Cinematographer — V11 Cinematic Sequencer</title>
+<title>Virtual Cinematographer — V12 Export Studio</title>
 <style>
 :root{--bg:#10151d;--panel:#171f2a;--panel2:#202b38;--line:#344253;--text:#e8eef5;--muted:#91a0b2;--accent:#66c7ff;--danger:#ff7777}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:14px/1.35 Inter,system-ui,Segoe UI,Arial,sans-serif;touch-action:none}
@@ -79,7 +79,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
 <body>
 <div id="app">
 <header>
- <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V11 CINEMATIC SEQUENCER</small></div>
+ <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V12 EXPORT STUDIO</small></div>
  <select id="layoutMode" title="Interface layout"><option value="auto">Auto layout</option><option value="desktop">Desktop</option><option value="tablet">Tablet</option></select>
  <div id="modeSwitch">
   <button id="freeBtn" class="active">Free Camera</button>
@@ -303,6 +303,12 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
     <button id="resetTransform" style="align-self:end">Reset transform</button>
    </div>
    <label class="control" style="margin-top:10px"><span>Visible</span><button id="objectVisibility" class="active">Visible</button></label>
+   <div class="panelTitle" style="margin-top:14px">Export studio · deliverables</div>
+   <div class="small" style="margin-bottom:8px">Export the current 3D stage as a GLB file, including imported models and scene objects.</div>
+   <label class="control"><span>Include embedded character animations</span><input id="exportAnimations" type="checkbox" checked></label>
+   <button id="exportGLB" class="full">Export complete scene (.glb)</button>
+   <button id="exportManifest" class="full" style="margin-top:7px">Export project manifest (.json)</button>
+   <div class="small" id="exportStatus" style="margin-top:7px">GLB export includes the current stage contents. Camera sequence is saved separately.</div>
    <div class="panelTitle" style="margin-top:14px">Scene file</div>
    <div class="stack">
     <button id="saveScene" class="full">Save scene (.json)</button>
@@ -409,7 +415,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
   </div>
  </aside>
 </div>
-<footer id="bottomBar"><span>V11 CINEMATIC SEQUENCER · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
+<footer id="bottomBar"><span>V12 EXPORT STUDIO · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
 </div>
 <script type="importmap">
 {
@@ -607,6 +613,42 @@ function updateUI(){
  const active=keys.size>0||Math.abs(moveJoy.x)+Math.abs(moveJoy.y)+Math.abs(lookJoy.x)+Math.abs(lookJoy.y)>0||vertical!==0;
  document.getElementById('motionState').textContent=active?'Moving':'Idle';
 }
+// V12 Export Studio
+function downloadBlob(blob,filename){
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+document.getElementById('exportGLB').onclick=async()=>{
+ const btn=document.getElementById('exportGLB'),status=document.getElementById('exportStatus');
+ btn.disabled=true;status.textContent='Preparing GLB export…';
+ try{
+  const {GLTFExporter}=await import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/exporters/GLTFExporter.js');
+  const exporter=new GLTFExporter();
+  const includeAnimations=document.getElementById('exportAnimations').checked;
+  const clips=includeAnimations?sceneEditorObjects.flatMap(o=>o.userData.animationClips||[]):[];
+  const result=await new Promise((resolve,reject)=>exporter.parse(stage,resolve,reject,{binary:true,onlyVisible:true,animations:clips}));
+  if(!(result instanceof ArrayBuffer))throw new Error('Exporter did not return a binary GLB');
+  downloadBlob(new Blob([result],{type:'model/gltf-binary'}),'virtual-cinematographer-scene.glb');
+  status.textContent='GLB exported · '+(result.byteLength/1048576).toFixed(2)+' MB';
+  toast('Scene GLB exported');
+ }catch(err){
+  console.error(err);status.textContent='Export failed · check browser console and model compatibility';toast('GLB export failed');
+ }finally{btn.disabled=false}
+};
+document.getElementById('exportManifest').onclick=()=>{
+ const manifest={
+  format:'VirtualCinematographerProject',
+  version:12,
+  createdAt:new Date().toISOString(),
+  note:'Scene geometry and imported models are in the companion GLB export. Manifest stores editable scene data and camera sequence.',
+  scene:serializeScene(),
+  cameraSequence:typeof cinematicShots!=='undefined'?cinematicShots:[],
+  camera:{position:camera.position.toArray(),quaternion:camera.quaternion.toArray(),focalLength,sensorFormat,aperture,focusDistance,dofEnabled,blurStrength}
+ };
+ downloadBlob(new Blob([JSON.stringify(manifest,null,2)],{type:'application/json'}),'virtual-cinematographer-project.json');
+ toast('Project manifest exported');
+};
 // V11 Cinematic Sequencer
 let cinematicShots=[],selectedShotIndex=-1,sequencePlaying=false,sequenceTime=0,sequenceDuration=0;
 function shotDurationValue(){return Number(document.getElementById('shotDuration').value)||2}

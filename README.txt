@@ -1,41 +1,40 @@
-VIRTUAL CINEMATOGRAPHER — V11 CINEMATIC SEQUENCER
+VIRTUAL CINEMATOGRAPHER — V12 EXPORT STUDIO
 
-V11 extends V10 and retains all previous modules: camera controls and optics, DOF,
-lighting, environment editing, character import and animation, Root Motion, keyframe
-easing editor, and Auto/Desktop/Tablet layouts.
+V12 extends V11 and retains all previous modules: camera and optics, DOF, lighting,
+environment editing, character import and animation, Root Motion, V10 keyframe easing,
+V11 Cinematic Sequencer, and Auto/Desktop/Tablet layouts.
 
-NEW IN V11 — CINEMATIC SEQUENCER
-- Capture the current viewport camera as a shot.
-- Store camera position, orientation, focal length, sensor, aperture, focus and DOF settings.
-- Build an ordered multi-shot sequence.
-- Set each shot duration.
-- Choose the transition into the next shot: Smooth camera move, Linear camera move, or Hard cut.
-- Replace or delete selected shots.
-- Play and stop the sequence.
-- Scrub the sequence timeline.
-- Save and load sequence JSON.
+NEW IN V12
+1. Export complete stage as binary GLB (.glb) using Three.js GLTFExporter.
+2. Optional inclusion of animation clips embedded in imported rigged GLB/GLTF characters.
+3. Export project manifest JSON containing editable primitive scene data, camera settings,
+   and the V11 camera sequence.
+4. Existing Scene JSON and Camera Sequence JSON exports remain available.
 
-HOW TO USE
-1. Frame the desired angle in the 3D viewport using mouse/WASD and camera optics.
-2. In Cinematic Sequencer, choose shot duration and transition.
-3. Click Capture current shot.
-4. Frame another angle and capture the next shot.
-5. Repeat for additional shots.
-6. Click Play sequence. Use the timeline slider to scrub.
-7. Save sequence JSON to reuse the camera edit later.
+HOW TO EXPORT
+- Import your character and add/edit scene objects.
+- Configure lighting and frame the scene.
+- In Environment Studio, find Export studio · deliverables.
+- Choose whether to include embedded character animations.
+- Click Export complete scene (.glb).
+- Click Export project manifest (.json) to save editable scene metadata and camera sequence.
+- The V11 Cinematic Sequencer can also save its camera sequence JSON independently.
 
 INSTALL
 1. Extract this ZIP on your computer.
 2. Open:
    https://github.com/ctaccc2727/MILO-MIMI-virtual-cinematographer
 3. Add file -> Upload files.
-4. Upload extracted index.html and README.txt from this V11 folder into repository root.
+4. Upload the extracted index.html and README.txt from this V12 folder to the repository root.
    Do NOT upload the ZIP itself.
 5. Commit changes, wait for GitHub Pages, then hard refresh with Ctrl+F5.
 
-NOTES / LIMITATIONS
-- This is a camera sequencer: it stores and plays camera shots, not a rendered video export.
-- Smooth and Linear transitions interpolate camera position, orientation and focal length.
-- Hard cut holds the current shot and switches at its duration boundary.
-- Audio tracks, clip trimming, rendered video export, and multi-track editing are not included yet.
-- Statically syntax-checked and ZIP integrity checked; not physically tested on the user's browser/tablet in this session.
+IMPORTANT LIMITATIONS
+- GLB export contains the stage contents (models and scene objects) but does not bake the
+  live camera sequencer into a rendered movie.
+- Camera sequence and editable project manifest are separate JSON deliverables.
+- The manifest references scene object data; the GLB is the companion file containing geometry.
+- Exported animation support depends on the imported model's embedded animation clips and
+  GLTFExporter compatibility. Custom V10/V9 pose-timeline animation is not yet baked into GLB.
+- This release is statically syntax-checked and ZIP-integrity checked; it has not been physically
+  tested on the user's browser/tablet in this session.
