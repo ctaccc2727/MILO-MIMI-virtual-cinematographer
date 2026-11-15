@@ -1,38 +1,32 @@
-VIRTUAL CINEMATOGRAPHER V4.1 FIX
+VIRTUAL CINEMATOGRAPHER V5 — LIGHTING STUDIO
 
-This is a corrective continuation of V4.
+V5 continues from the working V4.3 DOF FIX build. It preserves the camera modes,
+desktop controls, tablet touch controls, lens/sensor settings, and Depth of Field.
 
-Important fix:
-- The base Three.js scene now starts and renders independently of the optional Depth of Field post-processing modules.
-- EffectComposer, RenderPass and BokehPass are loaded dynamically after the base scene is ready.
-- If a post-processing module fails to load or crashes during rendering, the app falls back to direct renderer.render(scene, camera).
-- The user can still use the scene, camera controls and optics without DOF.
-- DOF controls are disabled when the effect cannot be initialized.
+New Lighting Studio:
+- Main/key directional light: intensity, color temperature (2000K–10000K), and XYZ position.
+- Fill directional light: intensity and color.
+- Hemisphere/ambient light: intensity.
+- Rim point light: intensity and color.
+- Environment background color.
+- Fog ON/OFF and fog distance.
+- Tone-mapping exposure.
+- Daylight, Warm Interior, and Night/Moonlight presets.
+- Save/load lighting preset JSON.
+- Camera preset JSON now also includes lighting settings.
 
-Retained:
-- V3 optics: Full Frame, Super 35, ALEXA 35, focal length, aperture and focus distance.
-- V4 DOF controls and Rack Focus demo when post-processing is available.
-- Free, Cinematic and Orbit camera modes.
-- Desktop keyboard/mouse and on-screen controls.
-- Tablet touch joysticks.
-- Camera preset JSON save/load.
+Known limitations:
+- This stage does not yet include HDRI image loading, physically based area lights,
+  shadow-map controls, or a full light-gizmo editor. Those are planned for later stages.
+- The lighting rig is a practical real-time preview setup, not a physically calibrated
+  film-set photometric simulator.
+- Three.js and post-processing modules load from jsDelivr CDN; internet access is required.
 
-Checks:
-- JavaScript syntax checked with Node.
-- ZIP integrity checked.
-- Duplicate HTML IDs checked.
+GitHub Pages update:
+1. Open the repository root.
+2. Add file -> Upload files.
+3. Upload the new index.html and README.txt from this package, replacing the existing files.
+4. Commit changes. Keep .nojekyll unchanged.
+5. GitHub Pages automatically rebuilds from main / root.
 
-Internet access is required for Three.js and optional post-processing modules.
-
-V4.2 FIX:
-- Added a browser import map for the bare module specifier `three`.
-- Three.js post-processing example modules (EffectComposer, RenderPass, BokehPass) import `three` by package name. Without an import map, browsers cannot resolve that package name from CDN-loaded ES modules, so DOF initialization failed and the toggle remained disabled/OFF.
-- The DOF button now displays UNAVAILABLE if initialization genuinely fails, rather than misleadingly displaying OFF.
-
-V4.3 DOF FIX:
-- Corrected the BokehPass aperture scale. The previous value (0.00002) was orders of magnitude below the Three.js BokehPass example scale (0.025), making the blur effectively imperceptible.
-- Default blur strength raised to 18/30 for a visible test while retaining a capped maxblur of 0.018.
-- Rack Focus Demo now sweeps through 6.5, 8.5 and 11.5 scene units, closer to the depths of the sample scene from the default camera.
-- Focus is the distance along the camera view in scene units, as defined by Three.js BokehPass.
-
-GitHub Pages deployment package: upload these extracted files to the repository root.
+Netlify is not required for this deployment.

@@ -71,7 +71,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 <body>
 <div id="app">
 <header>
- <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V4.3 DOF FIX</small></div>
+ <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V5 LIGHTING STUDIO</small></div>
  <div id="modeSwitch">
   <button id="freeBtn" class="active">Free Camera</button>
   <button id="cineBtn">Cinematic</button>
@@ -144,6 +144,50 @@ input[type=range]{width:100%;accent-color:var(--accent)}
    <button id="resetScene" class="full">Reset scene</button>
    <button id="gridToggle" class="full" style="margin-top:8px">Hide grid</button>
   </div>
+  <div class="group">
+   <div class="panelTitle">Lighting studio</div>
+   <div class="panelTitle">Key light · main</div>
+   <label class="control"><span>Intensity</span><strong id="keyIntensityValue">2.4</strong></label>
+   <input id="keyIntensity" type="range" min="0" max="6" step="0.1" value="2.4">
+   <label class="control"><span>Color temperature</span><strong><span id="temperatureValue">5600</span> K</strong></label>
+   <input id="temperature" type="range" min="2000" max="10000" step="100" value="5600">
+   <div class="panelTitle" style="margin-top:12px">Key light position</div>
+   <label class="control"><span>X</span><strong id="keyXValue">-6.0</strong></label>
+   <input id="keyX" type="range" min="-12" max="12" step="0.5" value="-6">
+   <label class="control"><span>Y</span><strong id="keyYValue">10.0</strong></label>
+   <input id="keyY" type="range" min="1" max="16" step="0.5" value="10">
+   <label class="control"><span>Z</span><strong id="keyZValue">5.0</strong></label>
+   <input id="keyZ" type="range" min="-12" max="12" step="0.5" value="5">
+   <div class="panelTitle" style="margin-top:12px">Fill light</div>
+   <label class="control"><span>Intensity</span><strong id="fillIntensityValue">0.8</strong></label>
+   <input id="fillIntensity" type="range" min="0" max="4" step="0.1" value="0.8">
+   <label class="control"><span>Color</span><input id="fillColor" type="color" value="#7bbcff" style="width:54px;height:30px;padding:2px"></label>
+   <div class="panelTitle" style="margin-top:12px">Ambient light</div>
+   <label class="control"><span>Intensity</span><strong id="ambientIntensityValue">1.45</strong></label>
+   <input id="ambientIntensity" type="range" min="0" max="3" step="0.05" value="1.45">
+   <div class="panelTitle" style="margin-top:12px">Rim light</div>
+   <label class="control"><span>Intensity</span><strong id="rimIntensityValue">1.2</strong></label>
+   <input id="rimIntensity" type="range" min="0" max="5" step="0.1" value="1.2">
+   <label class="control"><span>Color</span><input id="rimColor" type="color" value="#8ecbff" style="width:54px;height:30px;padding:2px"></label>
+   <div class="panelTitle" style="margin-top:12px">Environment</div>
+   <label class="control"><span>Background</span><input id="backgroundColor" type="color" value="#182431" style="width:54px;height:30px;padding:2px"></label>
+   <label class="control"><span>Fog</span><button id="fogToggle" style="padding:5px 10px">ON</button></label>
+   <label class="control"><span>Fog distance</span><strong id="fogDistanceValue">90</strong></label>
+   <input id="fogDistance" type="range" min="20" max="180" step="5" value="90">
+   <label class="control"><span>Exposure</span><strong id="exposureValue">1.05</strong></label>
+   <input id="exposure" type="range" min="0.4" max="2" step="0.05" value="1.05">
+   <div class="panelTitle" style="margin-top:14px">Lighting presets</div>
+   <div class="stack">
+    <button id="presetDay" class="full">Daylight</button>
+    <button id="presetWarm" class="full">Warm interior</button>
+    <button id="presetNight" class="full">Night / moonlight</button>
+    <button id="resetLighting" class="full">Reset lighting</button>
+    <button id="saveLighting" class="full">Save lighting preset (.json)</button>
+    <button id="loadLighting" class="full">Load lighting preset (.json)</button>
+    <input id="lightingFile" type="file" accept=".json,application/json" hidden>
+   </div>
+   <div class="small" style="margin-top:9px">Lighting controls are real-time. HDRI environment loading and shadow-map controls are planned for a later stage.</div>
+  </div>
  </aside>
  <main id="viewport">
   <canvas id="view"></canvas>
@@ -198,7 +242,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   </div>
  </aside>
 </div>
-<footer id="bottomBar"><span>V4.3 DOF FIX · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
+<footer id="bottomBar"><span>V5 LIGHTING STUDIO · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
 </div>
 <script type="importmap">
 {
@@ -220,6 +264,7 @@ renderer.toneMappingExposure=1.05;
 let composer=null, bokehPass=null, dofAvailable=false;
 const scene=new THREE.Scene(); scene.background=new THREE.Color(0x182431);
 scene.fog=new THREE.Fog(0x182431,28,90);
+const sceneFog=scene.fog;
 const camera=new THREE.PerspectiveCamera(55,1,.1,300);
 const sensorFormats={
  fullframe:{label:'Full Frame',height:24},
@@ -291,6 +336,48 @@ camera.position.copy(home.position);
 const hemi=new THREE.HemisphereLight(0xbfdcff,0x27313c,1.45);scene.add(hemi);
 const key=new THREE.DirectionalLight(0xffe2bd,2.4);key.position.set(-6,10,5);scene.add(key);
 const fill=new THREE.DirectionalLight(0x7bbcff,.8);fill.position.set(7,5,-6);scene.add(fill);
+const rim=new THREE.PointLight(0x8ecbff,1.2,28,2);rim.position.set(0,5,-6);scene.add(rim);
+let fogEnabled=true,fogDistance=90,lightTemperature=5600;
+function kelvinToColor(k){
+ let t=k/100, r,g,b;
+ if(t<=66){r=255;g=99.4708025861*Math.log(t)-161.1195681661;b=t<=19?0:138.5177312231*Math.log(t-10)-305.0447927307;}
+ else{r=329.698727446*Math.pow(t-60,-0.1332047592);g=288.1221695283*Math.pow(t-60,-0.0755148492);b=255;}
+ return new THREE.Color(Math.max(0,Math.min(255,r))/255,Math.max(0,Math.min(255,g))/255,Math.max(0,Math.min(255,b))/255);
+}
+function updateLightingUI(){
+ key.color.copy(kelvinToColor(lightTemperature));
+ document.getElementById('keyIntensity').value=key.intensity;document.getElementById('keyIntensityValue').textContent=key.intensity.toFixed(1);
+ document.getElementById('temperature').value=lightTemperature;document.getElementById('temperatureValue').textContent=String(lightTemperature);
+ ['x','y','z'].forEach(axis=>{const val=key.position[axis];document.getElementById('key'+axis.toUpperCase()).value=val;document.getElementById('key'+axis.toUpperCase()+'Value').textContent=val.toFixed(1)});
+ document.getElementById('fillIntensity').value=fill.intensity;document.getElementById('fillIntensityValue').textContent=fill.intensity.toFixed(1);
+ document.getElementById('fillColor').value='#'+fill.color.getHexString();
+ document.getElementById('ambientIntensity').value=hemi.intensity;document.getElementById('ambientIntensityValue').textContent=hemi.intensity.toFixed(2);
+ document.getElementById('rimIntensity').value=rim.intensity;document.getElementById('rimIntensityValue').textContent=rim.intensity.toFixed(1);
+ document.getElementById('rimColor').value='#'+rim.color.getHexString();
+ document.getElementById('backgroundColor').value='#'+scene.background.getHexString();
+ document.getElementById('fogToggle').textContent=fogEnabled?'ON':'OFF';document.getElementById('fogToggle').classList.toggle('active',fogEnabled);
+ document.getElementById('fogDistance').value=fogDistance;document.getElementById('fogDistanceValue').textContent=String(fogDistance);
+ document.getElementById('exposure').value=renderer.toneMappingExposure;document.getElementById('exposureValue').textContent=renderer.toneMappingExposure.toFixed(2);
+}
+function applyLightingPreset(name){
+ if(name==='day'){lightTemperature=5600;key.intensity=2.8;key.position.set(-6,11,5);fill.intensity=1.0;fill.color.set('#9fcfff');hemi.intensity=1.55;rim.intensity=1.25;rim.color.set('#b7dcff');scene.background.set('#182431');fogEnabled=true;fogDistance=110;renderer.toneMappingExposure=1.05;}
+ if(name==='warm'){lightTemperature=3200;key.intensity=2.2;key.position.set(-4,7,4);fill.intensity=.45;fill.color.set('#ffb36b');hemi.intensity=1.0;rim.intensity=1.6;rim.color.set('#ff9b55');scene.background.set('#241914');fogEnabled=false;fogDistance=90;renderer.toneMappingExposure=1.15;}
+ if(name==='night'){lightTemperature=8000;key.intensity=.65;key.position.set(-5,8,-2);fill.intensity=1.25;fill.color.set('#719dff');hemi.intensity=.42;rim.intensity=2.2;rim.color.set('#6ba7ff');scene.background.set('#080f22');fogEnabled=true;fogDistance=65;renderer.toneMappingExposure=.85;}
+ key.color.copy(kelvinToColor(lightTemperature));sceneFog.far=fogDistance;sceneFog.near=Math.min(28,fogDistance*.35);sceneFog.color.copy(scene.background);scene.fog=fogEnabled?sceneFog:null;
+ updateLightingUI();toast('Lighting preset: '+name);
+}
+function lightingPresetData(){return {format:'VirtualCinematographerLightingPreset',version:1,lights:{key:{intensity:key.intensity,temperature:lightTemperature,position:{x:key.position.x,y:key.position.y,z:key.position.z}},fill:{intensity:fill.intensity,color:'#'+fill.color.getHexString()},ambient:{intensity:hemi.intensity},rim:{intensity:rim.intensity,color:'#'+rim.color.getHexString(),position:{x:rim.position.x,y:rim.position.y,z:rim.position.z}},environment:{background:'#'+scene.background.getHexString(),fogEnabled,fogDistance,exposure:renderer.toneMappingExposure}}};}
+function applyLightingData(data){
+ const l=data.lights;if(!l)throw new Error('Missing lights');
+ lightTemperature=clamp(Number(l.key.temperature)||5600,2000,10000);key.intensity=clamp(Number(l.key.intensity)||0,0,6);key.position.set(Number(l.key.position.x)||0,Number(l.key.position.y)||10,Number(l.key.position.z)||0);key.color.copy(kelvinToColor(lightTemperature));
+ fill.intensity=clamp(Number(l.fill.intensity)||0,0,4);fill.color.set(l.fill.color||'#7bbcff');
+ hemi.intensity=clamp(Number(l.ambient.intensity)||0,0,3);
+ rim.intensity=clamp(Number(l.rim.intensity)||0,0,5);rim.color.set(l.rim.color||'#8ecbff');
+ if(l.rim.position)rim.position.set(Number(l.rim.position.x)||0,Number(l.rim.position.y)||5,Number(l.rim.position.z)||-6);
+ scene.background.set(l.environment.background||'#182431');fogEnabled=!!l.environment.fogEnabled;fogDistance=clamp(Number(l.environment.fogDistance)||90,20,180);renderer.toneMappingExposure=clamp(Number(l.environment.exposure)||1.05,.4,2);
+ sceneFog.far=fogDistance;sceneFog.near=Math.min(28,fogDistance*.35);sceneFog.color.copy(scene.background);scene.fog=fogEnabled?sceneFog:null;
+ updateLightingUI();
+}
 const floor=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.MeshStandardMaterial({color:0x303b46,roughness:.88}));
 floor.rotation.x=-Math.PI/2;floor.position.y=-.02;scene.add(floor);
 const grid=new THREE.GridHelper(100,100,0x71869a,0x465766);grid.position.y=.005;scene.add(grid);
@@ -409,11 +496,42 @@ document.getElementById('rackFocus').onclick=()=>{
  setTimeout(()=>{if(rackFocusTimer){clearInterval(rackFocusTimer);rackFocusTimer=null}},3600);
 };
 document.querySelectorAll('[data-focal]').forEach(b=>b.addEventListener('click',()=>{focalLength=Number(b.dataset.focal);updateOptics()}));
+// Lighting Studio controls
+document.getElementById('keyIntensity').oninput=e=>{key.intensity=Number(e.target.value);updateLightingUI()};
+document.getElementById('temperature').oninput=e=>{lightTemperature=Number(e.target.value);key.color.copy(kelvinToColor(lightTemperature));updateLightingUI()};
+['x','y','z'].forEach(axis=>{document.getElementById('key'+axis.toUpperCase()).oninput=e=>{key.position[axis]=Number(e.target.value);updateLightingUI()}});
+document.getElementById('fillIntensity').oninput=e=>{fill.intensity=Number(e.target.value);updateLightingUI()};
+document.getElementById('fillColor').oninput=e=>{fill.color.set(e.target.value)};
+document.getElementById('ambientIntensity').oninput=e=>{hemi.intensity=Number(e.target.value);updateLightingUI()};
+document.getElementById('rimIntensity').oninput=e=>{rim.intensity=Number(e.target.value);updateLightingUI()};
+document.getElementById('rimColor').oninput=e=>{rim.color.set(e.target.value)};
+document.getElementById('backgroundColor').oninput=e=>{scene.background.set(e.target.value);sceneFog.color.copy(scene.background)};
+document.getElementById('fogToggle').onclick=()=>{fogEnabled=!fogEnabled;scene.fog=fogEnabled?sceneFog:null;updateLightingUI()};
+document.getElementById('fogDistance').oninput=e=>{fogDistance=Number(e.target.value);scene.fog.far=fogDistance;scene.fog.near=Math.min(28,fogDistance*.35);updateLightingUI()};
+document.getElementById('exposure').oninput=e=>{renderer.toneMappingExposure=Number(e.target.value);updateLightingUI()};
+document.getElementById('presetDay').onclick=()=>applyLightingPreset('day');
+document.getElementById('presetWarm').onclick=()=>applyLightingPreset('warm');
+document.getElementById('presetNight').onclick=()=>applyLightingPreset('night');
+document.getElementById('resetLighting').onclick=()=>applyLightingPreset('day');
+document.getElementById('saveLighting').onclick=()=>{
+ const blob=new Blob([JSON.stringify(lightingPresetData(),null,2)],{type:'application/json'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='virtual-lighting-preset.json';a.click();URL.revokeObjectURL(url);toast('Lighting preset saved');
+};
+document.getElementById('loadLighting').onclick=()=>document.getElementById('lightingFile').click();
+document.getElementById('lightingFile').addEventListener('change',async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ try{const data=JSON.parse(await file.text());if(data.format!=='VirtualCinematographerLightingPreset')throw new Error('Invalid preset');applyLightingData(data);toast('Lighting preset loaded')}
+ catch(err){toast('Could not load lighting preset')}
+ e.target.value='';
+});
+updateLightingUI();
+
 function cameraPresetData(){
  return {
   format:'VirtualCinematographerCameraPreset',version:1,
   camera:{position:{x:camera.position.x,y:camera.position.y,z:camera.position.z},yaw,pitch,mode,orbitRadius,orbitTarget:{x:orbitTarget.x,y:orbitTarget.y,z:orbitTarget.z}},
   optics:{sensorFormat,focalLength,aperture,focusDistance,dofEnabled,blurStrength},
+  lighting:lightingPresetData(),
   controls:{speed,sensitivity}
  };
 }
@@ -436,6 +554,7 @@ document.getElementById('presetFile').addEventListener('change',async e=>{
   sensorFormat=sensorFormats[o.sensorFormat]?o.sensorFormat:'fullframe';
   dofEnabled=o.dofEnabled!==false;blurStrength=clamp(Number(o.blurStrength)||10,0,30);document.getElementById('blurStrength').value=String(blurStrength);
   if(data.controls){speed=clamp(Number(data.controls.speed)||4,1,12);sensitivity=clamp(Number(data.controls.sensitivity)||8,1,20);document.getElementById('speed').value=speed;document.getElementById('speedValue').textContent=speed.toFixed(1);document.getElementById('sensitivity').value=sensitivity;document.getElementById('sensitivityValue').textContent=String(sensitivity)}
+  if(data.lighting)applyLightingData(data.lighting);
   if(c.orbitTarget)orbitTarget.set(Number(c.orbitTarget.x)||0,Number(c.orbitTarget.y)||.8,Number(c.orbitTarget.z)||0);
   orbitRadius=clamp(Number(c.orbitRadius)||9,2.2,35);
   setMode(['free','cinematic','orbit'].includes(c.mode)?c.mode:'free');
