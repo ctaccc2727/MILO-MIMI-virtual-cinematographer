@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#10151d">
-<title>Virtual Cinematographer — V9 Root Motion Studio</title>
+<title>Virtual Cinematographer — V10 Animation Editor</title>
 <style>
 :root{--bg:#10151d;--panel:#171f2a;--panel2:#202b38;--line:#344253;--text:#e8eef5;--muted:#91a0b2;--accent:#66c7ff;--danger:#ff7777}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:14px/1.35 Inter,system-ui,Segoe UI,Arial,sans-serif;touch-action:none}
@@ -79,7 +79,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
 <body>
 <div id="app">
 <header>
- <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V9 ROOT MOTION STUDIO</small></div>
+ <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V10 ANIMATION EDITOR</small></div>
  <select id="layoutMode" title="Interface layout"><option value="auto">Auto layout</option><option value="desktop">Desktop</option><option value="tablet">Tablet</option></select>
  <div id="modeSwitch">
   <button id="freeBtn" class="active">Free Camera</button>
@@ -201,6 +201,17 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
     <button id="rootLeft">← Left</button><button id="rootRight">Right →</button>
    </div>
    <div class="small" style="margin-top:7px">Arrow buttons move the character by 0.25 scene units. Use Apply for exact numeric placement.</div>
+   <div class="panelTitle" style="margin-top:16px">Animation editor · keyframe curves</div>
+   <div class="small" style="margin-bottom:8px">Select a keyframe below to edit its exact time and interpolation. Easing affects the transition into the selected keyframe.</div>
+   <div class="transformGrid">
+    <label>Selected key time (s)<input id="kfEditTime" type="number" min="0" step="0.01" value="0"></label>
+    <label>Interpolation<select id="kfEasing"><option value="linear">Linear</option><option value="easeIn">Ease In</option><option value="easeOut">Ease Out</option><option value="easeInOut" selected>Ease In / Out</option><option value="step">Hold / Step</option></select></label>
+   </div>
+   <div class="stack" style="grid-template-columns:repeat(2,1fr);margin-top:8px">
+    <button id="applyKeyframeEdit">Apply keyframe settings</button>
+    <button id="sortKeyframes">Sort keyframes by time</button>
+   </div>
+   <div class="small" id="kfEditStatus" style="margin-top:6px">Select a keyframe to edit its timing and curve.</div>
    <div class="panelTitle" style="margin-top:16px">Animation timeline · custom pose</div>
    <div class="small" style="margin-bottom:8px">Stop the imported clip, pose the character with the bone controls above, then add keyframes. The timeline interpolates bone rotations and character root movement between poses.</div>
    <label class="control"><span>Current time</span><strong id="customTimeLabel">0.00 s</strong></label>
@@ -364,7 +375,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
   </div>
  </aside>
 </div>
-<footer id="bottomBar"><span>V9 ROOT MOTION STUDIO · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
+<footer id="bottomBar"><span>V10 ANIMATION EDITOR · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
 </div>
 <script type="importmap">
 {
@@ -949,13 +960,50 @@ function applyCustomPose(pose){
 }
 function snapTime(t){const fps=Number(document.getElementById('customFPS').value)||24;return Math.max(0,Math.min(customDuration,Math.round(t*fps)/fps))}
 function setCustomTime(t,apply=true){customTime=snapTime(t);document.getElementById('customTimeline').value=customTime;document.getElementById('customTimeLabel').textContent=customTime.toFixed(2)+' s';if(apply)applyCustomPoseAt(customTime)}
+function easingValue(mode,x){
+ x=THREE.MathUtils.clamp(x,0,1);
+ if(mode==='easeIn')return x*x;
+ if(mode==='easeOut')return 1-(1-x)*(1-x);
+ if(mode==='easeInOut')return x*x*(3-2*x);
+ if(mode==='step')return 0;
+ return x;
+}
+function selectedCustomKeyframe(){
+ return customKeyframes.find(k=>String(k.id)===String(selectedKeyframeId))||null;
+}
+function syncKeyframeEditor(){
+ const k=selectedCustomKeyframe();
+ const timeInput=document.getElementById('kfEditTime');
+ const easeInput=document.getElementById('kfEasing');
+ const status=document.getElementById('kfEditStatus');
+ if(!timeInput||!easeInput||!status)return;
+ if(!k){timeInput.value='0';easeInput.value='easeInOut';status.textContent='Select a keyframe to edit its timing and curve.';return}
+ timeInput.value=Number(k.time).toFixed(2);
+ easeInput.value=k.easing||'easeInOut';
+ status.textContent='Editing keyframe at '+Number(k.time).toFixed(2)+' s';
+}
+document.getElementById('applyKeyframeEdit').onclick=()=>{
+ const k=selectedCustomKeyframe();
+ if(!k){toast('Select a keyframe first');return}
+ const t=Number(document.getElementById('kfEditTime').value);
+ if(!Number.isFinite(t)||t<0){toast('Enter a valid non-negative time');return}
+ k.time=Math.min(Number(customDuration.value)||30,t);
+ k.easing=document.getElementById('kfEasing').value;
+ customKeyframes.sort((a,b)=>a.time-b.time);
+ renderCustomKeyframes();syncKeyframeEditor();setCustomTime(k.time,false);
+ toast('Keyframe timing and interpolation updated');
+};
+document.getElementById('sortKeyframes').onclick=()=>{
+ customKeyframes.sort((a,b)=>a.time-b.time);
+ renderCustomKeyframes();syncKeyframeEditor();toast('Keyframes sorted by time');
+};
 function applyCustomPoseAt(t){
  if(!customKeyframes.length)return;
  const frames=[...customKeyframes].sort((a,b)=>a.time-b.time);
  let a=frames[0],b=frames[frames.length-1];
  if(t<=a.time){applyCustomPose(a.pose);if(a.root)applyRootTransformData(a.root);return}if(t>=b.time){applyCustomPose(b.pose);if(b.root)applyRootTransformData(b.root);return}
  for(let i=0;i<frames.length-1;i++){if(t>=frames[i].time&&t<=frames[i+1].time){a=frames[i];b=frames[i+1];break}}
- const span=Math.max(1e-6,b.time-a.time),alpha=(t-a.time)/span,poseA=new Map(a.pose.map(p=>[p.index,p]));
+ const span=Math.max(1e-6,b.time-a.time),rawAlpha=(t-a.time)/span,alpha=easingValue(b.easing||'easeInOut',rawAlpha),poseA=new Map(a.pose.map(p=>[p.index,p]));
  const poseB=new Map(b.pose.map(p=>[p.index,p]));
  if(a.root&&b.root&&Array.isArray(a.root.position)&&Array.isArray(b.root.position)){
   const p=a.root.position.map((v,i)=>THREE.MathUtils.lerp(Number(v)||0,Number(b.root.position[i])||0,alpha));
@@ -979,9 +1027,9 @@ function storeKeyframe(update=false){
  if(selectedAnimAction){selectedAnimAction.paused=true;animIsPlaying=false;}
  selectedAnimCharacter.userData.animationMixer?.stopAllAction();customTimelineActive=true;customPlaying=false;
  const time=snapTime(customTime),existing=customKeyframes.find(k=>Math.abs(k.time-time)<1e-4);
- if(existing&&update){existing.pose=captureCustomPose();existing.root=captureRootTransform();selectedKeyframeId=existing.id;toast('Keyframe updated')}
+ if(existing&&update){existing.pose=captureCustomPose();existing.root=captureRootTransform();existing.easing=document.getElementById('kfEasing')?.value||existing.easing||'easeInOut';selectedKeyframeId=existing.id;toast('Keyframe updated')}
  else if(existing){toast('A keyframe already exists here · use Update at time');return}
- else{const frame={id:++customFrameId,time,pose:captureCustomPose(),root:captureRootTransform()};customKeyframes.push(frame);selectedKeyframeId=frame.id;toast('Keyframe added at '+time.toFixed(2)+' s')}
+ else{const frame={id:++customFrameId,time,pose:captureCustomPose(),root:captureRootTransform(),easing:document.getElementById('kfEasing')?.value||'easeInOut'};customKeyframes.push(frame);selectedKeyframeId=frame.id;toast('Keyframe added at '+time.toFixed(2)+' s')}
  renderKeyframeList();
 }
 document.getElementById('addKeyframe').onclick=()=>storeKeyframe(false);
@@ -991,7 +1039,7 @@ document.getElementById('customDuration').oninput=e=>{customDuration=Number(e.ta
 document.getElementById('customPlay').onclick=()=>{if(!selectedAnimCharacter){toast('Import a rigged character first');return}if(customKeyframes.length<2){toast('Add at least two keyframes');return}selectedAnimCharacter.userData.animationMixer?.stopAllAction();customTimelineActive=true;if(customTime>=customDuration)setCustomTime(0);customPlaying=true;toast('Custom animation playing')};
 document.getElementById('customStop').onclick=()=>{customPlaying=false;setCustomTime(0);toast('Custom timeline stopped')};
 document.getElementById('deleteKeyframe').onclick=()=>{if(selectedKeyframeId===null)return;customKeyframes=customKeyframes.filter(k=>k.id!==selectedKeyframeId);selectedKeyframeId=null;renderKeyframeList();toast('Keyframe deleted')};
-document.getElementById('duplicateKeyframe').onclick=()=>{const f=customKeyframes.find(k=>k.id===selectedKeyframeId);if(!f)return;const next=snapTime(Math.min(customDuration,f.time+1/(Number(document.getElementById('customFPS').value)||24)));if(customKeyframes.some(k=>Math.abs(k.time-next)<1e-4)){toast('No free frame at the next frame position');return}const copy={id:++customFrameId,time:next,pose:JSON.parse(JSON.stringify(f.pose)),root:f.root?JSON.parse(JSON.stringify(f.root)):null};customKeyframes.push(copy);selectedKeyframeId=copy.id;customKeyframes.sort((a,b)=>a.time-b.time);setCustomTime(next);renderKeyframeList();toast('Keyframe duplicated')};
+document.getElementById('duplicateKeyframe').onclick=()=>{const f=customKeyframes.find(k=>k.id===selectedKeyframeId);if(!f)return;const next=snapTime(Math.min(customDuration,f.time+1/(Number(document.getElementById('customFPS').value)||24)));if(customKeyframes.some(k=>Math.abs(k.time-next)<1e-4)){toast('No free frame at the next frame position');return}const copy={id:++customFrameId,time:next,pose:JSON.parse(JSON.stringify(f.pose)),root:f.root?JSON.parse(JSON.stringify(f.root)):null,easing:f.easing||'easeInOut'};customKeyframes.push(copy);selectedKeyframeId=copy.id;customKeyframes.sort((a,b)=>a.time-b.time);setCustomTime(next);renderKeyframeList();toast('Keyframe duplicated')};
 function updateCustomTimeline(dt){
  if(!customPlaying||!customKeyframes.length)return;
  customTimelineActive=true;customTime+=dt;if(customTime>=customDuration){customTime=customDuration;customPlaying=false}
@@ -999,8 +1047,8 @@ function updateCustomTimeline(dt){
 }
 document.getElementById('saveAnimationProject').onclick=()=>{
  if(!selectedAnimCharacter){toast('Import a rigged character first');return}
- const data={format:'VirtualCinematographerAnimation',version:9,characterName:selectedAnimCharacter.name,duration:customDuration,fps:Number(document.getElementById('customFPS').value),boneNames:customBones().map((b,index)=>({index,name:b.name||''})),keyframes:customKeyframes.map(k=>({time:k.time,pose:k.pose,root:k.root||null}))};
- const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=(selectedAnimCharacter.name||'character')+'_animation_v9.json';a.click();URL.revokeObjectURL(url);toast('Animation project saved as JSON');
+ const data={format:'VirtualCinematographerAnimation',version:10,characterName:selectedAnimCharacter.name,duration:customDuration,fps:Number(document.getElementById('customFPS').value),boneNames:customBones().map((b,index)=>({index,name:b.name||''})),keyframes:customKeyframes.map(k=>({time:k.time,pose:k.pose,root:k.root||null,easing:k.easing||'easeInOut'}))};
+ const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=(selectedAnimCharacter.name||'character')+'_animation_v10.json';a.click();URL.revokeObjectURL(url);toast('Animation project saved as JSON');
 };
 document.getElementById('loadAnimationProject').onclick=()=>document.getElementById('animationProjectFile').click();
 document.getElementById('animationProjectFile').addEventListener('change',async e=>{
@@ -1008,7 +1056,7 @@ document.getElementById('animationProjectFile').addEventListener('change',async 
  try{const data=JSON.parse(await file.text());if(data.format!=='VirtualCinematographerAnimation'||!Array.isArray(data.keyframes))throw new Error('Invalid animation project');if(!selectedAnimCharacter)throw new Error('Import the matching character first');
   const bones=customBones();const mismatches=(data.boneNames||[]).filter(x=>!bones[x.index]||(x.name&&bones[x.index].name&&x.name!==bones[x.index].name));if(mismatches.length)throw new Error('The loaded character skeleton does not match this animation');
   customDuration=Math.max(1,Math.min(30,Number(data.duration)||5));document.getElementById('customDuration').value=customDuration;document.getElementById('customDurationLabel').textContent=customDuration.toFixed(1);document.getElementById('customTimeline').max=customDuration;document.getElementById('customFPS').value=String([24,25,30,60].includes(Number(data.fps))?Number(data.fps):24);
-  customKeyframes=data.keyframes.map((k,i)=>({id:++customFrameId,time:Number(k.time)||0,pose:k.pose,root:k.root||null}));selectedKeyframeId=customKeyframes[0]?.id??null;customPlaying=false;customTimelineActive=true;setCustomTime(0);renderKeyframeList();toast('Animation project loaded');
+  customKeyframes=data.keyframes.map((k,i)=>({id:++customFrameId,time:Number(k.time)||0,pose:k.pose,root:k.root||null,easing:k.easing||'easeInOut'}));selectedKeyframeId=customKeyframes[0]?.id??null;customPlaying=false;customTimelineActive=true;setCustomTime(0);renderKeyframeList();toast('Animation project loaded');
  }catch(err){console.error(err);toast('Could not load project: '+err.message)}e.target.value='';
 });
 

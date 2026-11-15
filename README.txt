@@ -1,32 +1,27 @@
-VIRTUAL CINEMATOGRAPHER — V9 ROOT MOTION STUDIO
+VIRTUAL CINEMATOGRAPHER — V10 ANIMATION EDITOR
 
-V9 extends V8 and retains its camera, optics, DOF, lighting, environment, character import,
-skeleton inspector, custom pose timeline, and Auto/Desktop/Tablet layout modes.
+V10 extends V9 and retains all previous modules:
+camera/optics/DOF, lighting, environment, character import, skeleton inspector,
+custom pose timeline, Root Motion, and Auto/Desktop/Tablet layout modes.
 
-NEW IN V9
-- Move the selected character root in X, Y, Z.
-- Set character heading (Yaw) in degrees.
-- Move by directional buttons relative to the character's current heading.
-- Reset root transform to the character's imported starting position.
-- Root position and heading are captured with each custom animation keyframe.
-- Root position and heading interpolate between custom keyframes.
-- V9 animation JSON stores root transforms and remains able to load older V8 animation JSON
-  (older files simply have no root-motion data).
+NEW IN V10
+- Edit selected keyframe time numerically.
+- Choose interpolation into a keyframe: Linear, Ease In, Ease Out, Ease In/Out, Hold/Step.
+- Sort keyframes by time.
+- Keyframe easing and Root Motion data are saved in animation JSON.
+- V8/V9 animation JSON remains loadable; missing easing defaults to Ease In/Out.
 
 INSTALL
 1. Extract this ZIP on your computer.
-2. Open your GitHub repository:
+2. Open the GitHub repository:
    https://github.com/ctaccc2727/MILO-MIMI-virtual-cinematographer
-3. Choose Add file -> Upload files.
-4. Upload the extracted index.html and README.txt from this V9 folder to the repository root.
+3. Add file -> Upload files.
+4. Upload the extracted index.html and README.txt from this V10 folder to the repository root.
    Do NOT upload the ZIP itself.
-5. Commit changes.
-6. Wait for GitHub Pages to publish, then open:
-   https://ctaccc2727.github.io/MILO-MIMI-virtual-cinematographer/
-7. Hard refresh with Ctrl+F5.
+5. Commit changes, wait for GitHub Pages, then hard-refresh with Ctrl+F5.
 
-IMPORTANT
-- Use a rigged character for bone pose animation. Root movement also works for imported 3D models.
-- Root movement is scene-level positioning; it does not automatically create foot-contact or walk-cycle animation.
-- To animate travel, create custom keyframes at different times and use Play Custom.
-- This release is statically syntax-checked; it has not been physically tested on your tablet/browser in this session.
+NOTES
+- Easing is applied to the transition INTO each selected destination keyframe.
+- Hold/Step keeps the previous pose/root transform until the destination keyframe.
+- This editor does not yet provide a visual graph-curve drawing surface.
+- This release is statically syntax-checked; it has not been physically tested on your browser/tablet.
