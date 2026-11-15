@@ -76,7 +76,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 <body>
 <div id="app">
 <header>
- <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V6 ENVIRONMENT STUDIO</small></div>
+ <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V7 CHARACTER ANIMATION STUDIO</small></div>
  <div id="modeSwitch">
   <button id="freeBtn" class="active">Free Camera</button>
   <button id="cineBtn">Cinematic</button>
@@ -148,6 +148,37 @@ input[type=range]{width:100%;accent-color:var(--accent)}
    <div class="panelTitle">Scene</div>
    <button id="resetScene" class="full">Reset scene</button>
    <button id="gridToggle" class="full" style="margin-top:8px">Hide grid</button>
+  </div>
+  <div class="group">
+   <div class="panelTitle">Character animation studio</div>
+   <div class="small" style="margin-bottom:8px">Import a rigged GLB/GLTF with animation clips, then select the character and control its motion.</div>
+   <div class="stack">
+    <button id="animImport" class="full">Import animated character (.glb / .gltf)</button>
+    <input id="animModelFile" type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" hidden>
+   </div>
+   <label class="control" style="margin-top:10px"><span>Character</span></label>
+   <select id="animCharacter" class="full"><option value="">No animated character</option></select>
+   <label class="control"><span>Animation clip</span></label>
+   <select id="animClip" class="full"><option value="">No clips found</option></select>
+   <div class="stack" style="grid-template-columns:repeat(3,1fr);margin-top:8px">
+    <button id="animPlay">▶ Play</button><button id="animPause">Ⅱ Pause</button><button id="animStop">■ Stop</button>
+   </div>
+   <label class="control" style="margin-top:12px"><span>Playback speed</span><strong id="animSpeedValue">1.0×</strong></label>
+   <input id="animSpeed" type="range" min="0.1" max="2" step="0.1" value="1">
+   <label class="control"><span>Timeline</span><strong id="animTimeValue">0.00 / 0.00 s</strong></label>
+   <input id="animTimeline" type="range" min="0" max="1" step="0.01" value="0">
+   <div class="panelTitle" style="margin-top:14px">Skeleton inspector</div>
+   <label class="control"><span>Bone</span></label>
+   <select id="boneSelect" class="full"><option value="">No skeleton detected</option></select>
+   <div class="transformGrid" style="margin-top:8px">
+    <label>Rot X°<input id="boneRotX" type="number" step="5" value="0"></label>
+    <label>Rot Y°<input id="boneRotY" type="number" step="5" value="0"></label>
+    <label>Rot Z°<input id="boneRotZ" type="number" step="5" value="0"></label>
+   </div>
+   <div class="stack" style="grid-template-columns:1fr 1fr;margin-top:8px">
+    <button id="applyBoneRotation">Apply rotation</button><button id="resetBoneRotation">Reset bone</button>
+   </div>
+   <div class="small" style="margin-top:9px">Manual bone rotation is a preview adjustment. Playing a clip may override it. This stage does not create new keyframes or export edited animation.</div>
   </div>
   <div class="group">
    <div class="panelTitle">Environment studio</div>
@@ -291,7 +322,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   </div>
  </aside>
 </div>
-<footer id="bottomBar"><span>V6 ENVIRONMENT STUDIO · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
+<footer id="bottomBar"><span>V7 CHARACTER ANIMATION STUDIO · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
 </div>
 <script type="importmap">
 {
@@ -493,6 +524,8 @@ function loop(now){
  requestAnimationFrame(loop);
  const dt=Math.min((now-lastTime)/1000,.05);lastTime=now;
  updateCamera(dt);
+ sceneEditorObjects.forEach(o=>{if(o.userData.animationMixer)o.userData.animationMixer.update(dt)});
+ if(typeof updateAnimationReadout==='function')updateAnimationReadout();
  if(composer){
   try{composer.render()}
   catch(err){composer=null;bokehPass=null;dofAvailable=false;dofEnabled=false;updateDOF();renderer.render(scene,camera);toast('DOF disabled · standard 3D rendering active')}
@@ -709,15 +742,104 @@ document.getElementById('modelFile').addEventListener('change',async e=>{
   const loader=new GLTFLoader(),buffer=await file.arrayBuffer();
   const gltf=await new Promise((resolve,reject)=>loader.parse(buffer,'',resolve,reject));
   const model=gltf.scene;model.name=file.name.replace(/\.(glb|gltf)$/i,'');model.userData.vcType='imported';
+  model.userData.animationClips=gltf.animations||[];
+  model.userData.animationMixer=new THREE.AnimationMixer(model);
   const box=new THREE.Box3().setFromObject(model),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());
   model.position.sub(center);
   const maxDim=Math.max(size.x,size.y,size.z)||1;model.scale.setScalar(2.5/maxDim);model.position.y+=.9;
-  stage.add(model);sceneEditorObjects.push(model);selectedSceneObject=model;refreshObjectList();
-  toast('3D model imported');
+  stage.add(model);sceneEditorObjects.push(model);selectedSceneObject=model;refreshObjectList();refreshAnimationCharacters();
+  toast(gltf.animations?.length?'3D model imported · animation clips found':'3D model imported');
  }catch(err){console.error(err);toast('Import failed · use self-contained GLB')}
  e.target.value='';
 });
 refreshObjectList();
+
+// Character Animation Studio
+let selectedAnimCharacter=null,selectedAnimAction=null,selectedBone=null,selectedBoneRest=null;
+let animIsPlaying=false,animScrubbing=false;
+function animatedCharacters(){return sceneEditorObjects.filter(o=>o.userData.animationMixer)}
+function refreshAnimationCharacters(){
+ const select=document.getElementById('animCharacter'),current=selectedAnimCharacter,chars=animatedCharacters();
+ select.innerHTML='';
+ if(!chars.length){select.add(new Option('No animated character',''));selectedAnimCharacter=null;refreshAnimationClips();refreshBones();return}
+ chars.forEach((o,i)=>select.add(new Option(o.name||('Character '+(i+1)),String(i))));
+ selectedAnimCharacter=current&&chars.includes(current)?current:chars[0];
+ select.value=String(chars.indexOf(selectedAnimCharacter));refreshAnimationClips();refreshBones();
+}
+function currentClip(){return (selectedAnimCharacter?.userData.animationClips||[])[Number(document.getElementById('animClip').value)]||null}
+function refreshAnimationClips(){
+ const select=document.getElementById('animClip'),clips=selectedAnimCharacter?.userData.animationClips||[];
+ select.innerHTML='';
+ if(!clips.length){select.add(new Option('No animation clips in model',''));selectedAnimAction=null;updateAnimationReadout();return}
+ clips.forEach((clip,i)=>select.add(new Option(clip.name||('Animation '+(i+1)),String(i))));
+ select.value='0';startAnimationAction(0,false);
+}
+function startAnimationAction(index,play=true){
+ if(!selectedAnimCharacter)return;
+ const clip=(selectedAnimCharacter.userData.animationClips||[])[index];if(!clip)return;
+ const mixer=selectedAnimCharacter.userData.animationMixer;mixer.stopAllAction();
+ const action=mixer.clipAction(clip);action.reset();action.enabled=true;action.clampWhenFinished=true;action.setLoop(THREE.LoopRepeat,Infinity);
+ action.timeScale=Number(document.getElementById('animSpeed').value)||1;action.play();action.paused=!play;
+ selectedAnimAction=action;animIsPlaying=play;
+ const timeline=document.getElementById('animTimeline');timeline.max=Math.max(.01,clip.duration);timeline.value=0;updateAnimationReadout();
+}
+function updateAnimationReadout(){
+ const clip=currentClip(),duration=clip?.duration||0,time=selectedAnimAction?.time||0;
+ document.getElementById('animTimeValue').textContent=time.toFixed(2)+' / '+duration.toFixed(2)+' s';
+ if(!animScrubbing)document.getElementById('animTimeline').value=Math.min(duration,time);
+ document.getElementById('animPlay').classList.toggle('active',animIsPlaying);
+}
+function refreshBones(){
+ const select=document.getElementById('boneSelect'),bones=[];select.innerHTML='';
+ selectedAnimCharacter?.traverse(o=>{if(o.isBone)bones.push(o)});
+ if(!bones.length){select.add(new Option('No skeleton detected',''));selectedBone=null;selectedBoneRest=null;return}
+ bones.forEach((b,i)=>select.add(new Option(b.name||('Bone '+(i+1)),String(i))));
+ selectedBone=bones[0];selectedBoneRest=selectedBone.quaternion.clone();select.value='0';showBoneRotation();
+}
+function boneAt(index){const bones=[];selectedAnimCharacter?.traverse(o=>{if(o.isBone)bones.push(o)});return bones[index]||null}
+function showBoneRotation(){
+ if(!selectedBone)return;
+ ['x','y','z'].forEach(axis=>document.getElementById('boneRot'+axis.toUpperCase()).value=THREE.MathUtils.radToDeg(selectedBone.rotation[axis]).toFixed(1));
+}
+document.getElementById('animCharacter').onchange=e=>{selectedAnimCharacter=animatedCharacters()[Number(e.target.value)]||null;refreshAnimationClips();refreshBones()};
+document.getElementById('animClip').onchange=e=>{if(e.target.value!=='')startAnimationAction(Number(e.target.value),false)};
+document.getElementById('animPlay').onclick=()=>{if(!selectedAnimCharacter||!currentClip())return;if(!selectedAnimAction)startAnimationAction(Number(document.getElementById('animClip').value),true);else{selectedAnimAction.paused=false;selectedAnimAction.play();animIsPlaying=true}updateAnimationReadout()};
+document.getElementById('animPause').onclick=()=>{if(selectedAnimAction){selectedAnimAction.paused=true;animIsPlaying=false;updateAnimationReadout()}};
+document.getElementById('animStop').onclick=()=>{if(selectedAnimCharacter){selectedAnimCharacter.userData.animationMixer.stopAllAction();selectedAnimCharacter.userData.animationMixer.setTime(0)}selectedAnimAction=null;animIsPlaying=false;if(currentClip())startAnimationAction(Number(document.getElementById('animClip').value),false);updateAnimationReadout()};
+document.getElementById('animSpeed').oninput=e=>{const speed=Number(e.target.value);document.getElementById('animSpeedValue').textContent=speed.toFixed(1)+'×';if(selectedAnimAction)selectedAnimAction.timeScale=speed};
+document.getElementById('animTimeline').addEventListener('pointerdown',()=>animScrubbing=true);
+document.getElementById('animTimeline').addEventListener('pointerup',()=>animScrubbing=false);
+document.getElementById('animTimeline').oninput=e=>{
+ if(!selectedAnimCharacter||!currentClip())return;
+ const t=Number(e.target.value),wasPlaying=animIsPlaying;
+ if(!selectedAnimAction)startAnimationAction(Number(document.getElementById('animClip').value),false);
+ selectedAnimAction.paused=true;selectedAnimAction.time=t;selectedAnimCharacter.userData.animationMixer.update(0);
+ animIsPlaying=false;updateAnimationReadout();if(wasPlaying){selectedAnimAction.paused=false;animIsPlaying=true}
+};
+document.getElementById('boneSelect').onchange=e=>{selectedBone=boneAt(Number(e.target.value));selectedBoneRest=selectedBone?.quaternion.clone()||null;showBoneRotation()};
+document.getElementById('applyBoneRotation').onclick=()=>{
+ if(!selectedBone)return;
+ selectedBone.rotation.set(...['X','Y','Z'].map(a=>THREE.MathUtils.degToRad(Number(document.getElementById('boneRot'+a).value)||0)));
+};
+document.getElementById('resetBoneRotation').onclick=()=>{if(selectedBone&&selectedBoneRest){selectedBone.quaternion.copy(selectedBoneRest);showBoneRotation()}};
+document.getElementById('animImport').onclick=()=>document.getElementById('animModelFile').click();
+document.getElementById('animModelFile').addEventListener('change',async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ try{
+  const {GLTFLoader}=await import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js');
+  const loader=new GLTFLoader(),buffer=await file.arrayBuffer();
+  const gltf=await new Promise((resolve,reject)=>loader.parse(buffer,'',resolve,reject));
+  const model=gltf.scene;model.name=file.name.replace(/\.(glb|gltf)$/i,'');model.userData.vcType='imported';
+  model.userData.animationClips=gltf.animations||[];model.userData.animationMixer=new THREE.AnimationMixer(model);
+  const box=new THREE.Box3().setFromObject(model),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());
+  model.position.sub(center);const maxDim=Math.max(size.x,size.y,size.z)||1;model.scale.setScalar(2.5/maxDim);model.position.y+=.9;
+  stage.add(model);sceneEditorObjects.push(model);selectedSceneObject=model;refreshObjectList();
+  selectedAnimCharacter=model;refreshAnimationCharacters();
+  toast(gltf.animations?.length?'Animated character imported':'Character imported · no clips found');
+ }catch(err){console.error(err);toast('Character import failed · try self-contained GLB')}
+ e.target.value='';
+});
+refreshAnimationCharacters();
 
 const codeMap={KeyW:'w',ArrowUp:'w',KeyA:'a',ArrowLeft:'a',KeyS:'s',ArrowDown:'s',KeyD:'d',ArrowRight:'d',KeyQ:'q',KeyE:'e',ShiftLeft:'shift',ShiftRight:'shift'};
 window.addEventListener('keydown',e=>{

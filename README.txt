@@ -1,33 +1,33 @@
-VIRTUAL CINEMATOGRAPHER V6 — ENVIRONMENT STUDIO
+VIRTUAL CINEMATOGRAPHER V7 — CHARACTER ANIMATION STUDIO
 
-V6 continues from V5 Lighting Studio and preserves:
-- Free, Cinematic, and Orbit camera modes
-- Keyboard movement and on-screen touch joysticks
-- Lens sensor profiles, focal length, aperture, focus distance, and DOF
-- Lighting Studio controls, presets, and JSON presets
+V7 continues from V6 and retains the adaptive desktop/tablet interface, camera controls,
+lens/DOF, lighting studio, and environment object editor.
 
-New Environment Studio:
-- Add cube, sphere, cylinder, and plane primitives.
-- Import GLB / GLTF models through Three.js GLTFLoader.
-- Select objects from the scene object list.
-- Edit position X/Y/Z, rotation X/Y/Z, and uniform scale.
-- Change object color for mesh materials.
-- Duplicate, delete, hide/show, and reset transforms.
-- Save and load scene layouts as JSON.
+New Character Animation Studio:
+- Import rigged GLB/GLTF characters.
+- Read animation clips embedded in the imported glTF.
+- Select a character and animation clip.
+- Play, pause, stop, and scrub the clip timeline.
+- Playback speed control from 0.1x to 2.0x.
+- Skeleton inspector with detected bone list.
+- Manual preview rotation of a selected bone and reset to its captured local quaternion.
+- The Environment Studio importer also registers imported clips for playback.
 
 Important limitations:
-- Scene JSON saves the editable primitive objects and their transforms/material color.
-- Imported GLB/GLTF model geometry is not embedded into the JSON scene file; re-import source model files after loading a scene.
-- GLTF files that depend on external texture/buffer URLs may not import from a single selected file. Self-contained GLB is recommended.
-- This stage uses numeric transform controls rather than viewport transform gizmos.
-- No claim of physical testing on every GLB rig or device. Validate your own models and GPU performance.
+- Imported model must contain a compatible skeleton for bone inspection.
+- Playback only plays clips embedded in the GLB/GLTF; it does not generate new motion.
+- Manual bone rotation is a preview adjustment; playing a clip may overwrite it.
+- This version does not yet author keyframes, retarget motion capture, or export edited animations.
+- Self-contained GLB is recommended. GLTF files with external dependencies may fail when only one file is selected.
+- Three.js and GLTFLoader load from jsDelivr CDN; internet access is required.
+- Designed for desktop and tablet responsive layouts; test large rigs against device GPU.
 
 GitHub Pages update:
 1. Extract this ZIP.
 2. Open the repository root.
 3. Add file -> Upload files.
 4. Upload the new index.html and README.txt, replacing existing versions.
-5. Commit changes. Keep .nojekyll.
+5. Commit changes. Keep .nojekyll unchanged.
 6. GitHub Pages rebuilds from main / root automatically.
 
 Netlify is not required.
