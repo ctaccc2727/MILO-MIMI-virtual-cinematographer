@@ -1,41 +1,40 @@
-VIRTUAL CINEMATOGRAPHER — V13 PROJECT STUDIO
+VIRTUAL CINEMATOGRAPHER — V14 MOTION STUDIO
 
-V13 extends V12 and retains all previous features:
-- Camera controls, optics, depth of field and presets
+V14 is based on V13 and retains its features:
+- Camera controls, optics and depth of field
 - Lighting Studio and Environment Studio
 - GLB/GLTF import, character animation and skeleton inspector
 - Root Motion, custom pose timeline and keyframe easing
 - Cinematic Sequencer
+- Complete project ZIP save/load
 - Auto / Desktop / Tablet layouts
-- V12 standalone GLB and project manifest export
 
-NEW IN V13 — COMPLETE PROJECT ARCHIVE
-Use Environment Studio → Export Studio → Complete project:
-1. Save complete project (.zip)
-   Creates one archive containing:
-   - scene.glb: complete visible stage, imported models, primitives and embedded source animation clips
-   - project.json: scene metadata, camera settings, lighting, camera sequence, imported model names
-   - lighting.json
-   - camera-sequence.json
-   - custom-animation.json when a custom pose timeline exists
-2. Load complete project (.zip)
-   Restores the GLB stage, camera/optics, lighting, camera sequence and custom pose timeline
-   when the matching rigged character skeleton is present.
+NEW IN V14 — MOTION STUDIO
+- Select a scene object or character root in Environment Studio → Scene objects.
+- Set Motion duration and move the timeline to a time.
+- Position/rotate the target using the existing object transform controls or root controls.
+- Click Capture transform to add a keyframe.
+- Move to another time, transform the target and capture again.
+- Play motion to preview interpolated position and quaternion rotation.
+- Update at time replaces/creates a key at the current time.
+- Delete selected key removes the key nearest the current playhead.
+- Clear target track removes the selected target's motion track.
+- Motion tracks are included in complete project ZIP archives.
+- GLB export adds generated position/quaternion animation clips for tracks with at least two keys.
 
-IMPORTANT
-- Complete project ZIP uses JSZip loaded from jsDelivr on demand; internet access is required for this operation.
-- GLB import/export uses Three.js GLTFLoader/GLTFExporter from jsDelivr.
-- The ZIP contains the full stage GLB and the custom pose timeline JSON. Custom pose animation is restored as editable timeline data; it is not baked into the GLB animation tracks.
-- Camera shots are restored as editable sequencer data; this is not a rendered movie.
-- The project loader replaces the current stage contents. Save any current work before loading another project.
-- If a custom animation skeleton does not match, the scene is restored but custom keyframes are not applied.
-- This version is syntax-checked and archive-checked. Actual browser interaction and device testing must be performed in the user's browser.
+IMPORTANT LIMITATIONS
+- Motion Studio animates the selected object's root transform. It does not create footstep animation or edit internal skeleton bones; use the existing custom pose timeline for bone posing.
+- Root-motion clips and imported skeletal clips are exported as GLB animation clips. They are separate clips, not automatically blended together.
+- If multiple scene objects share the same object name, rename them uniquely before creating motion tracks.
+- Camera synchronization remains handled by the existing Cinematic Sequencer; V14 does not yet bake camera animation into the scene GLB.
+- Complete project ZIP uses JSZip and Three.js modules from jsDelivr; internet access is required.
+- This build is statically syntax-checked and ZIP-checked. Actual browser/device behavior must be verified in the user's browser.
 
 INSTALL
 1. Extract this ZIP.
-2. Open the GitHub repository:
+2. GitHub repository:
    https://github.com/ctaccc2727/MILO-MIMI-virtual-cinematographer
 3. Add file → Upload files.
-4. Upload index.html and README.txt from this V13 folder to the repository root, replacing the previous versions.
-5. Commit changes, wait for GitHub Pages, then hard refresh with Ctrl+F5.
-6. Do not upload this ZIP itself. Keep .nojekyll in the repository.
+4. Upload index.html and README.txt from this V14 folder to repository root, replacing the old files.
+5. Commit changes, wait for GitHub Pages, then Ctrl+F5.
+6. Do not upload this ZIP itself. Keep .nojekyll.

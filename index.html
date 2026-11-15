@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#10151d">
-<title>Virtual Cinematographer — V13 Project Studio</title>
+<title>Virtual Cinematographer — V14 Motion Studio</title>
 <style>
 :root{--bg:#10151d;--panel:#171f2a;--panel2:#202b38;--line:#344253;--text:#e8eef5;--muted:#91a0b2;--accent:#66c7ff;--danger:#ff7777}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:14px/1.35 Inter,system-ui,Segoe UI,Arial,sans-serif;touch-action:none}
@@ -79,7 +79,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
 <body>
 <div id="app">
 <header>
- <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V13 PROJECT STUDIO</small></div>
+ <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V14 MOTION STUDIO</small></div>
  <select id="layoutMode" title="Interface layout"><option value="auto">Auto layout</option><option value="desktop">Desktop</option><option value="tablet">Tablet</option></select>
  <div id="modeSwitch">
   <button id="freeBtn" class="active">Free Camera</button>
@@ -266,6 +266,21 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
    </div>
    <input id="animationProjectFile" type="file" accept=".json,application/json" hidden>
    <div class="small" style="margin-top:9px">V9 records and interpolates character root position, root yaw and local bone rotations. It saves a reusable JSON animation project, not a new GLB file. Imported clips and custom keyframes are separate modes.</div>
+   <div class="panelTitle" style="margin-top:18px">Motion Studio · object & character path</div>
+   <div class="small" style="margin-bottom:8px">Animate the selected scene object or character root with position and rotation keyframes. Choose a target in Environment Studio first.</div>
+   <label class="control"><span>Motion duration (s)</span><strong id="motionDurationLabel">5.0</strong></label>
+   <input id="motionDuration" type="range" min="1" max="30" step="0.5" value="5">
+   <label class="control"><span>Current time</span><strong id="motionTimeLabel">0.00 s</strong></label>
+   <input id="motionTimeline" type="range" min="0" max="5" step="0.01" value="0">
+   <div class="stack" style="grid-template-columns:repeat(2,1fr);margin-top:8px">
+    <button id="motionCapture">＋ Capture transform</button><button id="motionUpdate">Update at time</button>
+    <button id="motionPlay">▶ Play motion</button><button id="motionStop">■ Stop</button>
+    <button id="motionDelete">Delete selected key</button><button id="motionClear">Clear target track</button>
+   </div>
+   <div class="control"><span>Motion keyframes</span><strong id="motionKeyCount">0</strong></div>
+   <div id="motionKeyList" class="stack" style="max-height:130px;overflow:auto"></div>
+   <div class="small" id="motionStatus" style="margin-top:7px">Select an object or character in the Scene objects list to begin.</div>
+   <div class="small" style="margin-top:7px">Motion tracks are included in the complete project ZIP and exported as GLB transform animation clips. This animates the selected object's root transform, not its internal bone pose.</div>
   </div>
   <div class="group">
    <div class="panelTitle">Environment studio</div>
@@ -309,7 +324,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
    <button id="exportGLB" class="full">Export complete scene (.glb)</button>
    <button id="exportManifest" class="full" style="margin-top:7px">Export project manifest (.json)</button>
    <div class="small" id="exportStatus" style="margin-top:7px">GLB export includes the current stage contents. Camera sequence is saved separately.</div>
-   <div class="panelTitle" style="margin-top:14px">Complete project · V13</div>
+   <div class="panelTitle" style="margin-top:14px">Complete project · V14</div>
    <div class="small" style="margin-bottom:8px">Save a portable project archive containing the GLB scene, editable scene data, camera, lighting, shot sequence and custom character keyframes.</div>
    <button id="saveCompleteProject" class="full">Save complete project (.zip)</button>
    <button id="loadCompleteProject" class="full" style="margin-top:7px">Load complete project (.zip)</button>
@@ -421,7 +436,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
   </div>
  </aside>
 </div>
-<footer id="bottomBar"><span>V13 PROJECT STUDIO · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
+<footer id="bottomBar"><span>V14 MOTION STUDIO · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
 </div>
 <script type="importmap">
 {
@@ -657,6 +672,102 @@ document.getElementById('exportManifest').onclick=()=>{
  toast('Project manifest exported');
 };
 
+// V14 Motion Studio — root transform tracks for scene objects and character roots
+let motionTracks=[];
+let motionTime=0,motionPlaying=false,motionTargetName=null,motionKeyId=0;
+function motionTarget(){
+ return sceneEditorObjects.find(o=>o===selectedSceneObject)||null;
+}
+function motionTrackFor(target,create=false){
+ if(!target)return null;
+ let t=motionTracks.find(x=>x.targetName===target.name);
+ if(!t&&create){t={targetName:target.name,keyframes:[]};motionTracks.push(t)}
+ return t;
+}
+function motionCaptureData(target){
+ return {position:target.position.toArray(),quaternion:target.quaternion.toArray()};
+}
+function motionSetStatus(msg){document.getElementById('motionStatus').textContent=msg}
+function motionRefresh(){
+ const target=motionTarget(),track=motionTrackFor(target);
+ document.getElementById('motionKeyCount').textContent=String(track?.keyframes.length||0);
+ document.getElementById('motionTimeLabel').textContent=motionTime.toFixed(2)+' s';
+ const list=document.getElementById('motionKeyList');list.innerHTML='';
+ (track?.keyframes||[]).slice().sort((a,b)=>a.time-b.time).forEach(k=>{
+  const b=document.createElement('button');b.textContent='◆ '+k.time.toFixed(2)+' s';b.style.textAlign='left';
+  b.onclick=()=>{motionPlaying=false;motionTime=k.time;document.getElementById('motionTimeline').value=motionTime;motionApplyAt(motionTime);motionRefresh();motionSetStatus('Selected transform keyframe at '+k.time.toFixed(2)+' s')};
+  list.appendChild(b);
+ });
+ if(target)motionSetStatus('Target: '+(target.name||'Selected object')+' · '+(track?.keyframes.length||0)+' keys');
+}
+function motionCapture(update=false){
+ const target=motionTarget();if(!target){toast('Select a scene object first');return}
+ const track=motionTrackFor(target,true),t=THREE.MathUtils.clamp(Number(motionTime)||0,0,Number(document.getElementById('motionDuration').value)||5);
+ const data=motionCaptureData(target);
+ let k=track.keyframes.find(x=>Math.abs(x.time-t)<.0001);
+ if(k&&update){k.position=data.position;k.quaternion=data.quaternion}
+ else if(k){k.position=data.position;k.quaternion=data.quaternion}
+ else track.keyframes.push({id:++motionKeyId,time:t,position:data.position,quaternion:data.quaternion});
+ track.keyframes.sort((a,b)=>a.time-b.time);
+ motionTime=t;motionRefresh();toast(update?'Motion keyframe updated':'Transform captured');
+}
+function motionApplyAt(t){
+ const target=motionTarget();if(!target)return;
+ const track=motionTrackFor(target);if(!track||!track.keyframes.length)return;
+ const frames=track.keyframes.slice().sort((a,b)=>a.time-b.time);
+ if(t<=frames[0].time){target.position.fromArray(frames[0].position);target.quaternion.fromArray(frames[0].quaternion);return}
+ if(t>=frames.at(-1).time){target.position.fromArray(frames.at(-1).position);target.quaternion.fromArray(frames.at(-1).quaternion);return}
+ let i=0;while(i<frames.length-1&&frames[i+1].time<t)i++;
+ const a=frames[i],b=frames[i+1],alpha=(t-a.time)/Math.max(.00001,b.time-a.time);
+ target.position.fromArray(a.position).lerp(new THREE.Vector3(...b.position),alpha);
+ const qa=new THREE.Quaternion(...a.quaternion),qb=new THREE.Quaternion(...b.quaternion);qa.slerp(qb,alpha);target.quaternion.copy(qa);
+ if(target===selectedSceneObject)updateObjectEditor();
+}
+function motionStop(){motionPlaying=false;motionSetStatus('Motion playback stopped');}
+function motionUpdate(dt){
+ if(!motionPlaying)return;
+ const duration=Number(document.getElementById('motionDuration').value)||5;
+ motionTime+=dt;
+ if(motionTime>=duration){motionTime=duration;motionPlaying=false}
+ document.getElementById('motionTimeline').value=motionTime;
+ motionApplyAt(motionTime);motionRefresh();
+}
+function motionClipForTrack(track){
+ const target=sceneEditorObjects.find(o=>o.name===track.targetName);if(!target||track.keyframes.length<2)return null;
+ const keys=track.keyframes.slice().sort((a,b)=>a.time-b.time);
+ const times=keys.map(k=>k.time),positions=keys.flatMap(k=>k.position),quats=keys.flatMap(k=>k.quaternion);
+ const safeName=target.name.replace(/[^\w.-]/g,'_');
+ return new THREE.AnimationClip('Motion_'+safeName,-1,[
+  new THREE.VectorKeyframeTrack(target.name+'.position',times,positions),
+  new THREE.QuaternionKeyframeTrack(target.name+'.quaternion',times,quats)
+ ]);
+}
+document.getElementById('motionDuration').oninput=e=>{
+ const v=Number(e.target.value);document.getElementById('motionDurationLabel').textContent=v.toFixed(1);
+ document.getElementById('motionTimeline').max=v;
+ motionTime=Math.min(motionTime,v);document.getElementById('motionTimeline').value=motionTime;motionRefresh();
+};
+document.getElementById('motionTimeline').oninput=e=>{motionPlaying=false;motionTime=Number(e.target.value);motionApplyAt(motionTime);motionRefresh()};
+document.getElementById('motionCapture').onclick=()=>motionCapture(false);
+document.getElementById('motionUpdate').onclick=()=>motionCapture(true);
+document.getElementById('motionPlay').onclick=()=>{
+ const target=motionTarget(),track=motionTrackFor(target);
+ if(!track||track.keyframes.length<2){toast('Capture at least two transform keyframes');return}
+ motionTime=0;motionPlaying=true;document.getElementById('motionTimeline').value=0;motionApplyAt(0);motionRefresh();motionSetStatus('Playing motion: '+target.name);
+};
+document.getElementById('motionStop').onclick=motionStop;
+document.getElementById('motionDelete').onclick=()=>{
+ const track=motionTrackFor(motionTarget());if(!track?.keyframes.length)return;
+ const idx=track.keyframes.reduce((best,k,i,a)=>Math.abs(k.time-motionTime)<Math.abs(a[best].time-motionTime)?i:best,0);
+ track.keyframes.splice(idx,1);motionRefresh();toast('Nearest motion keyframe deleted');
+};
+document.getElementById('motionClear').onclick=()=>{
+ const target=motionTarget();if(!target)return;
+ motionTracks=motionTracks.filter(t=>t.targetName!==target.name);motionStop();motionRefresh();toast('Target motion track cleared');
+};
+document.getElementById('objectSelect').addEventListener('change',()=>{motionStop();motionTime=0;document.getElementById('motionTimeline').value=0;motionRefresh()});
+document.getElementById('addKeyframe').addEventListener('click',()=>{motionRefresh()});
+
 // V13 Complete Project Archive
 function v13CameraData(){
  return {
@@ -685,6 +796,7 @@ function v13ProjectManifest(){
   camera:v13CameraData(),
   lighting:lightingPresetData(),
   cameraSequence:cinematicShots,
+  motionTracks:motionTracks,
   customAnimation:v13CustomAnimationData(),
   notes:['The companion scene.glb contains the complete visible stage and embedded imported animation clips.','Custom pose keyframes are stored separately in custom-animation.json and restored when a matching rigged character is present.']
  };
@@ -697,7 +809,7 @@ document.getElementById('saveCompleteProject').onclick=async()=>{
    import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/exporters/GLTFExporter.js'),
    import('https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm')
   ]);
-  const clips=sceneEditorObjects.flatMap(o=>o.userData.animationClips||[]);
+  const clips=[...sceneEditorObjects.flatMap(o=>o.userData.animationClips||[]),...motionTracks.map(motionClipForTrack).filter(Boolean)];
   const glb=await new Promise((resolve,reject)=>new GLTFExporter().parse(stage,resolve,reject,{binary:true,onlyVisible:true,animations:clips}));
   if(!(glb instanceof ArrayBuffer))throw new Error('GLB export did not return binary data');
   const manifest=v13ProjectManifest(),zip=new JSZip();
@@ -780,6 +892,7 @@ document.getElementById('completeProjectFile').addEventListener('change',async e
   updateOptics();updateLightingUI();setMode(['free','cinematic','orbit'].includes(c.mode)?c.mode:'free');
 
   cinematicShots=Array.isArray(manifest.cameraSequence)?manifest.cameraSequence:[];
+  motionTracks=Array.isArray(manifest.motionTracks)?manifest.motionTracks:[];motionKeyId=motionTracks.flatMap(t=>t.keyframes||[]).reduce((m,k)=>Math.max(m,Number(k.id)||0),0);motionTime=0;motionPlaying=false;motionRefresh();
   selectedShotIndex=-1;sequencePlaying=false;sequenceTime=0;refreshSequenceUI();
 
   // Restore custom pose timeline against the imported character skeleton, if present.
@@ -913,6 +1026,7 @@ function loop(now){
  }
  sceneEditorObjects.forEach(o=>{if(o.userData.animationMixer && !(o===selectedAnimCharacter && customTimelineActive))o.userData.animationMixer.update(dt)});
  if(typeof updateCustomTimeline==='function')updateCustomTimeline(dt);
+ if(typeof motionUpdate==='function')motionUpdate(dt);
  if(typeof updateAnimationReadout==='function')updateAnimationReadout();
  if(composer){
   try{composer.render()}
