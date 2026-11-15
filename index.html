@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#10151d">
-<title>Virtual Cinematographer — V10 Animation Editor</title>
+<title>Virtual Cinematographer — V11 Cinematic Sequencer</title>
 <style>
 :root{--bg:#10151d;--panel:#171f2a;--panel2:#202b38;--line:#344253;--text:#e8eef5;--muted:#91a0b2;--accent:#66c7ff;--danger:#ff7777}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:14px/1.35 Inter,system-ui,Segoe UI,Arial,sans-serif;touch-action:none}
@@ -79,7 +79,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
 <body>
 <div id="app">
 <header>
- <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V10 ANIMATION EDITOR</small></div>
+ <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V11 CINEMATIC SEQUENCER</small></div>
  <select id="layoutMode" title="Interface layout"><option value="auto">Auto layout</option><option value="desktop">Desktop</option><option value="tablet">Tablet</option></select>
  <div id="modeSwitch">
   <button id="freeBtn" class="active">Free Camera</button>
@@ -152,6 +152,40 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
    <div class="panelTitle">Scene</div>
    <button id="resetScene" class="full">Reset scene</button>
    <button id="gridToggle" class="full" style="margin-top:8px">Hide grid</button>
+  </div>
+  <div class="group" id="sequencerPanel">
+   <div class="panelTitle">Cinematic Sequencer · shot editor</div>
+   <div class="small">Frame a camera angle in the viewport, then capture it as a shot. Shots play in order as a camera sequence.</div>
+   <label class="control"><span>Shot duration</span><strong><span id="shotDurationLabel">2.0</span> s</strong></label>
+   <input id="shotDuration" type="range" min="0.5" max="10" step="0.5" value="2">
+   <label class="control"><span>Transition to next shot</span></label>
+   <select id="shotTransition" class="full">
+    <option value="smooth">Smooth camera move</option>
+    <option value="linear">Linear camera move</option>
+    <option value="cut">Hard cut</option>
+   </select>
+   <div class="stack" style="grid-template-columns:repeat(2,1fr);margin-top:8px">
+    <button id="captureShot">＋ Capture current shot</button>
+    <button id="replaceShot">Replace selected shot</button>
+   </div>
+   <div class="stack" style="grid-template-columns:repeat(2,1fr);margin-top:7px">
+    <button id="deleteShot">Delete selected</button>
+    <button id="clearShots">Clear sequence</button>
+   </div>
+   <label class="control" style="margin-top:10px"><span>Shot list</span><strong id="shotCount">0 shots</strong></label>
+   <select id="shotList" class="full" size="4" style="min-height:90px"></select>
+   <div class="stack" style="grid-template-columns:repeat(2,1fr);margin-top:8px">
+    <button id="playSequence">▶ Play sequence</button>
+    <button id="stopSequence">■ Stop</button>
+   </div>
+   <label class="control" style="margin-top:9px"><span>Sequence timeline</span><strong id="sequenceTimeLabel">0.00 / 0.00 s</strong></label>
+   <input id="sequenceTimeline" type="range" min="0" max="0" step="0.01" value="0">
+   <div class="stack" style="grid-template-columns:repeat(2,1fr);margin-top:8px">
+    <button id="saveSequence">Save sequence JSON</button>
+    <button id="loadSequence">Load sequence JSON</button>
+    <input id="sequenceFile" type="file" accept=".json,application/json" hidden>
+   </div>
+   <div class="small" id="sequenceStatus" style="margin-top:7px">No shots captured yet.</div>
   </div>
   <div class="group">
    <div class="panelTitle">Character animation studio</div>
@@ -375,7 +409,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
   </div>
  </aside>
 </div>
-<footer id="bottomBar"><span>V10 ANIMATION EDITOR · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
+<footer id="bottomBar"><span>V11 CINEMATIC SEQUENCER · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
 </div>
 <script type="importmap">
 {
@@ -573,10 +607,107 @@ function updateUI(){
  const active=keys.size>0||Math.abs(moveJoy.x)+Math.abs(moveJoy.y)+Math.abs(lookJoy.x)+Math.abs(lookJoy.y)>0||vertical!==0;
  document.getElementById('motionState').textContent=active?'Moving':'Idle';
 }
+// V11 Cinematic Sequencer
+let cinematicShots=[],selectedShotIndex=-1,sequencePlaying=false,sequenceTime=0,sequenceDuration=0;
+function shotDurationValue(){return Number(document.getElementById('shotDuration').value)||2}
+function refreshSequenceUI(){
+ const list=document.getElementById('shotList');list.innerHTML='';
+ cinematicShots.forEach((s,i)=>list.add(new Option((i+1)+'. '+(s.name||'Shot '+(i+1))+' · '+Number(s.duration).toFixed(1)+'s',String(i))));
+ if(selectedShotIndex>=0&&selectedShotIndex<cinematicShots.length)list.value=String(selectedShotIndex);
+ document.getElementById('shotCount').textContent=cinematicShots.length+' shots';
+ sequenceDuration=cinematicShots.reduce((sum,s)=>sum+(Number(s.duration)||2),0);
+ document.getElementById('sequenceTimeline').max=String(sequenceDuration);
+ document.getElementById('sequenceTimeLabel').textContent=sequenceTime.toFixed(2)+' / '+sequenceDuration.toFixed(2)+' s';
+ document.getElementById('sequenceTimeline').value=String(Math.min(sequenceTime,sequenceDuration));
+ document.getElementById('sequenceStatus').textContent=cinematicShots.length?('Sequence ready · '+cinematicShots.length+' shots · '+sequenceDuration.toFixed(1)+' seconds'):'No shots captured yet.';
+}
+function captureCameraShot(){
+ const shot={name:'Shot '+(cinematicShots.length+1),position:camera.position.toArray(),quaternion:camera.quaternion.toArray(),focalLength, sensorFormat,aperture,focusDistance,dofEnabled,blurStrength,duration:shotDurationValue(),transition:document.getElementById('shotTransition').value};
+ return shot;
+}
+function applyCameraShot(s){
+ camera.position.fromArray(s.position);
+ camera.quaternion.fromArray(s.quaternion);
+ if(Number.isFinite(Number(s.focalLength))){focalLength=Number(s.focalLength);document.getElementById('focalLength').value=String(focalLength)}
+ if(s.sensorFormat&&sensorFormats[s.sensorFormat])sensorFormat=s.sensorFormat;
+ if(Number.isFinite(Number(s.aperture)))aperture=Number(s.aperture);
+ if(Number.isFinite(Number(s.focusDistance)))focusDistance=Number(s.focusDistance);
+ if(typeof s.dofEnabled==='boolean')dofEnabled=s.dofEnabled;
+ if(Number.isFinite(Number(s.blurStrength)))blurStrength=Number(s.blurStrength);
+ updateOptics();
+ yaw=camera.rotation.y;pitch=camera.rotation.x;
+}
+function addCameraShot(){
+ cinematicShots.push(captureCameraShot());selectedShotIndex=cinematicShots.length-1;refreshSequenceUI();toast('Camera shot captured');
+}
+document.getElementById('shotDuration').addEventListener('input',e=>document.getElementById('shotDurationLabel').textContent=Number(e.target.value).toFixed(1));
+document.getElementById('captureShot').onclick=addCameraShot;
+document.getElementById('replaceShot').onclick=()=>{
+ if(selectedShotIndex<0||!cinematicShots[selectedShotIndex]){toast('Select a shot first');return}
+ const next=captureCameraShot();next.name=cinematicShots[selectedShotIndex].name;cinematicShots[selectedShotIndex]=next;refreshSequenceUI();toast('Selected shot replaced');
+};
+document.getElementById('deleteShot').onclick=()=>{
+ if(selectedShotIndex<0)return;
+ cinematicShots.splice(selectedShotIndex,1);selectedShotIndex=Math.min(selectedShotIndex,cinematicShots.length-1);refreshSequenceUI();
+};
+document.getElementById('clearShots').onclick=()=>{sequencePlaying=false;cinematicShots=[];selectedShotIndex=-1;sequenceTime=0;refreshSequenceUI()};
+document.getElementById('shotList').onchange=e=>{
+ selectedShotIndex=Number(e.target.value);const s=cinematicShots[selectedShotIndex];if(s){document.getElementById('shotDuration').value=String(s.duration);document.getElementById('shotDurationLabel').textContent=Number(s.duration).toFixed(1);document.getElementById('shotTransition').value=s.transition||'smooth';}
+};
+function applySequenceTime(t){
+ sequenceTime=THREE.MathUtils.clamp(t,0,sequenceDuration);
+ if(!cinematicShots.length){refreshSequenceUI();return}
+ let cursor=0,index=0;
+ while(index<cinematicShots.length-1&&sequenceTime>cursor+cinematicShots[index].duration){cursor+=cinematicShots[index].duration;index++}
+ const a=cinematicShots[index],local=sequenceTime-cursor,dur=Math.max(.001,Number(a.duration)||2);
+ if(index===cinematicShots.length-1||a.transition==='cut'){
+  if(local>=dur&&index<cinematicShots.length-1)applyCameraShot(cinematicShots[index+1]);else applyCameraShot(a);
+ }else{
+  const b=cinematicShots[index+1],raw=THREE.MathUtils.clamp(local/dur,0,1);
+  const alpha=a.transition==='smooth'?raw*raw*(3-2*raw):raw;
+  const pa=new THREE.Vector3().fromArray(a.position),pb=new THREE.Vector3().fromArray(b.position);
+  camera.position.copy(pa.lerp(pb,alpha));
+  const qa=new THREE.Quaternion().fromArray(a.quaternion),qb=new THREE.Quaternion().fromArray(b.quaternion);
+  camera.quaternion.copy(qa.slerp(qb,alpha));
+  const fa=Number(a.focalLength)||35,fb=Number(b.focalLength)||35;
+  focalLength=THREE.MathUtils.lerp(fa,fb,alpha);document.getElementById('focalLength').value=String(focalLength);
+  sensorFormat=alpha<.5?(a.sensorFormat||'fullframe'):(b.sensorFormat||'fullframe');
+  aperture=THREE.MathUtils.lerp(Number(a.aperture)||2.8,Number(b.aperture)||2.8,alpha);
+  focusDistance=THREE.MathUtils.lerp(Number(a.focusDistance)||5,Number(b.focusDistance)||5,alpha);
+  updateOptics();
+  yaw=camera.rotation.y;pitch=camera.rotation.x;
+ }
+ refreshSequenceUI();
+}
+document.getElementById('playSequence').onclick=()=>{
+ if(cinematicShots.length<1){toast('Capture at least one camera shot');return}
+ sequencePlaying=true;sequenceTime=0;applySequenceTime(0);setMode('cinematic');toast('Cinematic sequence playing');
+};
+document.getElementById('stopSequence').onclick=()=>{sequencePlaying=false;toast('Sequence stopped')};
+document.getElementById('sequenceTimeline').oninput=e=>{sequencePlaying=false;applySequenceTime(Number(e.target.value))};
+document.getElementById('saveSequence').onclick=()=>{
+ const data={format:'VirtualCinematographerSequence',version:1,shots:cinematicShots};
+ const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='cinematic-sequence.json';a.click();URL.revokeObjectURL(url);toast('Sequence JSON saved');
+};
+document.getElementById('loadSequence').onclick=()=>document.getElementById('sequenceFile').click();
+document.getElementById('sequenceFile').addEventListener('change',async e=>{
+ const f=e.target.files?.[0];if(!f)return;
+ try{const d=JSON.parse(await f.text());if(d.format!=='VirtualCinematographerSequence'||!Array.isArray(d.shots))throw new Error('Invalid sequence');
+  cinematicShots=d.shots.filter(s=>Array.isArray(s.position)&&Array.isArray(s.quaternion));selectedShotIndex=cinematicShots.length?0:-1;sequencePlaying=false;sequenceTime=0;refreshSequenceUI();toast('Cinematic sequence loaded');
+ }catch(err){toast('Could not load sequence JSON')}
+ e.target.value='';
+});
+refreshSequenceUI();
 function loop(now){
  requestAnimationFrame(loop);
  const dt=Math.min((now-lastTime)/1000,.05);lastTime=now;
  updateCamera(dt);
+ if(sequencePlaying){
+  sequenceTime+=dt;
+  if(sequenceTime>=sequenceDuration){sequenceTime=sequenceDuration;sequencePlaying=false}
+  applySequenceTime(sequenceTime);
+ }
  sceneEditorObjects.forEach(o=>{if(o.userData.animationMixer && !(o===selectedAnimCharacter && customTimelineActive))o.userData.animationMixer.update(dt)});
  if(typeof updateCustomTimeline==='function')updateCustomTimeline(dt);
  if(typeof updateAnimationReadout==='function')updateAnimationReadout();
