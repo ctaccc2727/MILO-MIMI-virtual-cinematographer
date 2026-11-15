@@ -1,40 +1,41 @@
-VIRTUAL CINEMATOGRAPHER — V12 EXPORT STUDIO
+VIRTUAL CINEMATOGRAPHER — V13 PROJECT STUDIO
 
-V12 extends V11 and retains all previous modules: camera and optics, DOF, lighting,
-environment editing, character import and animation, Root Motion, V10 keyframe easing,
-V11 Cinematic Sequencer, and Auto/Desktop/Tablet layouts.
+V13 extends V12 and retains all previous features:
+- Camera controls, optics, depth of field and presets
+- Lighting Studio and Environment Studio
+- GLB/GLTF import, character animation and skeleton inspector
+- Root Motion, custom pose timeline and keyframe easing
+- Cinematic Sequencer
+- Auto / Desktop / Tablet layouts
+- V12 standalone GLB and project manifest export
 
-NEW IN V12
-1. Export complete stage as binary GLB (.glb) using Three.js GLTFExporter.
-2. Optional inclusion of animation clips embedded in imported rigged GLB/GLTF characters.
-3. Export project manifest JSON containing editable primitive scene data, camera settings,
-   and the V11 camera sequence.
-4. Existing Scene JSON and Camera Sequence JSON exports remain available.
+NEW IN V13 — COMPLETE PROJECT ARCHIVE
+Use Environment Studio → Export Studio → Complete project:
+1. Save complete project (.zip)
+   Creates one archive containing:
+   - scene.glb: complete visible stage, imported models, primitives and embedded source animation clips
+   - project.json: scene metadata, camera settings, lighting, camera sequence, imported model names
+   - lighting.json
+   - camera-sequence.json
+   - custom-animation.json when a custom pose timeline exists
+2. Load complete project (.zip)
+   Restores the GLB stage, camera/optics, lighting, camera sequence and custom pose timeline
+   when the matching rigged character skeleton is present.
 
-HOW TO EXPORT
-- Import your character and add/edit scene objects.
-- Configure lighting and frame the scene.
-- In Environment Studio, find Export studio · deliverables.
-- Choose whether to include embedded character animations.
-- Click Export complete scene (.glb).
-- Click Export project manifest (.json) to save editable scene metadata and camera sequence.
-- The V11 Cinematic Sequencer can also save its camera sequence JSON independently.
+IMPORTANT
+- Complete project ZIP uses JSZip loaded from jsDelivr on demand; internet access is required for this operation.
+- GLB import/export uses Three.js GLTFLoader/GLTFExporter from jsDelivr.
+- The ZIP contains the full stage GLB and the custom pose timeline JSON. Custom pose animation is restored as editable timeline data; it is not baked into the GLB animation tracks.
+- Camera shots are restored as editable sequencer data; this is not a rendered movie.
+- The project loader replaces the current stage contents. Save any current work before loading another project.
+- If a custom animation skeleton does not match, the scene is restored but custom keyframes are not applied.
+- This version is syntax-checked and archive-checked. Actual browser interaction and device testing must be performed in the user's browser.
 
 INSTALL
-1. Extract this ZIP on your computer.
-2. Open:
+1. Extract this ZIP.
+2. Open the GitHub repository:
    https://github.com/ctaccc2727/MILO-MIMI-virtual-cinematographer
-3. Add file -> Upload files.
-4. Upload the extracted index.html and README.txt from this V12 folder to the repository root.
-   Do NOT upload the ZIP itself.
+3. Add file → Upload files.
+4. Upload index.html and README.txt from this V13 folder to the repository root, replacing the previous versions.
 5. Commit changes, wait for GitHub Pages, then hard refresh with Ctrl+F5.
-
-IMPORTANT LIMITATIONS
-- GLB export contains the stage contents (models and scene objects) but does not bake the
-  live camera sequencer into a rendered movie.
-- Camera sequence and editable project manifest are separate JSON deliverables.
-- The manifest references scene object data; the GLB is the companion file containing geometry.
-- Exported animation support depends on the imported model's embedded animation clips and
-  GLTFExporter compatibility. Custom V10/V9 pose-timeline animation is not yet baked into GLB.
-- This release is statically syntax-checked and ZIP-integrity checked; it has not been physically
-  tested on the user's browser/tablet in this session.
+6. Do not upload this ZIP itself. Keep .nojekyll in the repository.

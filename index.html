@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#10151d">
-<title>Virtual Cinematographer — V12 Export Studio</title>
+<title>Virtual Cinematographer — V13 Project Studio</title>
 <style>
 :root{--bg:#10151d;--panel:#171f2a;--panel2:#202b38;--line:#344253;--text:#e8eef5;--muted:#91a0b2;--accent:#66c7ff;--danger:#ff7777}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:14px/1.35 Inter,system-ui,Segoe UI,Arial,sans-serif;touch-action:none}
@@ -79,7 +79,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
 <body>
 <div id="app">
 <header>
- <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V12 EXPORT STUDIO</small></div>
+ <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V13 PROJECT STUDIO</small></div>
  <select id="layoutMode" title="Interface layout"><option value="auto">Auto layout</option><option value="desktop">Desktop</option><option value="tablet">Tablet</option></select>
  <div id="modeSwitch">
   <button id="freeBtn" class="active">Free Camera</button>
@@ -309,13 +309,19 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
    <button id="exportGLB" class="full">Export complete scene (.glb)</button>
    <button id="exportManifest" class="full" style="margin-top:7px">Export project manifest (.json)</button>
    <div class="small" id="exportStatus" style="margin-top:7px">GLB export includes the current stage contents. Camera sequence is saved separately.</div>
+   <div class="panelTitle" style="margin-top:14px">Complete project · V13</div>
+   <div class="small" style="margin-bottom:8px">Save a portable project archive containing the GLB scene, editable scene data, camera, lighting, shot sequence and custom character keyframes.</div>
+   <button id="saveCompleteProject" class="full">Save complete project (.zip)</button>
+   <button id="loadCompleteProject" class="full" style="margin-top:7px">Load complete project (.zip)</button>
+   <input id="completeProjectFile" type="file" accept=".zip,application/zip" hidden>
+   <div class="small" id="projectStatus" style="margin-top:7px">Project archive restores the scene and studio settings. Original source GLB files are no longer required.</div>
    <div class="panelTitle" style="margin-top:14px">Scene file</div>
    <div class="stack">
     <button id="saveScene" class="full">Save scene (.json)</button>
     <button id="loadScene" class="full">Load scene (.json)</button>
     <input id="sceneFile" type="file" accept=".json,application/json" hidden>
    </div>
-   <div class="small" style="margin-top:9px">Scene JSON stores primitive objects and their transforms. Imported GLB/GLTF files must be re-imported after reloading the page; their geometry is not embedded in the JSON yet.</div>
+   <div class="small" style="margin-top:9px">Scene JSON remains a lightweight primitive-only format. Use Complete project ZIP to preserve imported models and the full stage.</div>
   </div>
   <div class="group">
    <div class="panelTitle">Lighting studio</div>
@@ -415,7 +421,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
   </div>
  </aside>
 </div>
-<footer id="bottomBar"><span>V12 EXPORT STUDIO · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
+<footer id="bottomBar"><span>V13 PROJECT STUDIO · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
 </div>
 <script type="importmap">
 {
@@ -647,8 +653,163 @@ document.getElementById('exportManifest').onclick=()=>{
   camera:{position:camera.position.toArray(),quaternion:camera.quaternion.toArray(),focalLength,sensorFormat,aperture,focusDistance,dofEnabled,blurStrength}
  };
  downloadBlob(new Blob([JSON.stringify(manifest,null,2)],{type:'application/json'}),'virtual-cinematographer-project.json');
+
  toast('Project manifest exported');
 };
+
+// V13 Complete Project Archive
+function v13CameraData(){
+ return {
+  position:camera.position.toArray(),quaternion:camera.quaternion.toArray(),
+  focalLength,sensorFormat,aperture,focusDistance,dofEnabled,blurStrength,
+  mode,yaw,pitch,orbitRadius,orbitTarget:orbitTarget.toArray(),
+  speed,sensitivity
+ };
+}
+function v13CustomAnimationData(){
+ if(!selectedAnimCharacter)return null;
+ return {
+  format:'VirtualCinematographerAnimation',version:10,
+  characterName:selectedAnimCharacter.name,
+  duration:customDuration,
+  fps:Number(document.getElementById('customFPS').value)||24,
+  boneNames:customBones().map((b,index)=>({index,name:b.name||''})),
+  keyframes:customKeyframes.map(k=>({time:k.time,pose:k.pose,root:k.root||null,easing:k.easing||'easeInOut'}))
+ };
+}
+function v13ProjectManifest(){
+ return {
+  format:'VirtualCinematographerCompleteProject',version:13,createdAt:new Date().toISOString(),
+  scene:serializeScene(),
+  importedModels:sceneEditorObjects.filter(o=>o.userData.vcType==='imported').map(o=>({name:o.name})),
+  camera:v13CameraData(),
+  lighting:lightingPresetData(),
+  cameraSequence:cinematicShots,
+  customAnimation:v13CustomAnimationData(),
+  notes:['The companion scene.glb contains the complete visible stage and embedded imported animation clips.','Custom pose keyframes are stored separately in custom-animation.json and restored when a matching rigged character is present.']
+ };
+}
+document.getElementById('saveCompleteProject').onclick=async()=>{
+ const btn=document.getElementById('saveCompleteProject'),status=document.getElementById('projectStatus');
+ btn.disabled=true;status.textContent='Building complete project archive…';
+ try{
+  const [{GLTFExporter},{default:JSZip}]=await Promise.all([
+   import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/exporters/GLTFExporter.js'),
+   import('https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm')
+  ]);
+  const clips=sceneEditorObjects.flatMap(o=>o.userData.animationClips||[]);
+  const glb=await new Promise((resolve,reject)=>new GLTFExporter().parse(stage,resolve,reject,{binary:true,onlyVisible:true,animations:clips}));
+  if(!(glb instanceof ArrayBuffer))throw new Error('GLB export did not return binary data');
+  const manifest=v13ProjectManifest(),zip=new JSZip();
+  zip.file('project.json',JSON.stringify(manifest,null,2));
+  zip.file('scene.glb',glb);
+  zip.file('lighting.json',JSON.stringify(manifest.lighting,null,2));
+  zip.file('camera-sequence.json',JSON.stringify({format:'VirtualCinematographerSequence',version:1,shots:cinematicShots},null,2));
+  if(manifest.customAnimation)zip.file('custom-animation.json',JSON.stringify(manifest.customAnimation,null,2));
+  const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:5}});
+  downloadBlob(blob,'virtual-cinematographer-project-v13.zip');
+  status.textContent='Complete project saved · '+(blob.size/1048576).toFixed(2)+' MB · GLB + manifest + settings';
+  toast('Complete project archive saved');
+ }catch(err){
+  console.error(err);status.textContent='Project save failed · '+(err.message||'unknown error');toast('Complete project save failed');
+ }finally{btn.disabled=false}
+};
+document.getElementById('loadCompleteProject').onclick=()=>document.getElementById('completeProjectFile').click();
+document.getElementById('completeProjectFile').addEventListener('change',async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ const btn=document.getElementById('loadCompleteProject'),status=document.getElementById('projectStatus');
+ btn.disabled=true;status.textContent='Reading project archive…';
+ try{
+  const [{default:JSZip},{GLTFLoader}]=await Promise.all([
+   import('https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm'),
+   import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js')
+  ]);
+  const zip=await JSZip.loadAsync(file);
+  const manifestFile=zip.file('project.json'),glbFile=zip.file('scene.glb');
+  if(!manifestFile||!glbFile)throw new Error('Archive must contain project.json and scene.glb');
+  const manifest=JSON.parse(await manifestFile.async('text'));
+  if(manifest.format!=='VirtualCinematographerCompleteProject'||!manifest.scene||!Array.isArray(manifest.scene.objects))throw new Error('Unsupported project archive');
+  const glb=await glbFile.async('arraybuffer');
+  const gltf=await new Promise((resolve,reject)=>new GLTFLoader().parse(glb,'',resolve,reject));
+
+  // Replace only the stage contents; floor, grid, studio lights and renderer remain intact.
+  while(stage.children.length)stage.remove(stage.children[0]);
+  stage.add(gltf.scene);
+  sceneEditorObjects.length=0;selectedSceneObject=null;selectedAnimCharacter=null;
+  const findNamed=(name)=>{let found=null;stage.traverse(n=>{if(!found&&n.name===name)found=n});return found};
+  for(const item of manifest.scene.objects){
+   const obj=findNamed(item.name);
+   if(obj){obj.userData.vcType=item.type||'cube';sceneEditorObjects.push(obj)}
+  }
+  for(const item of (manifest.importedModels||[])){
+   const obj=findNamed(item.name);
+   if(obj){
+    obj.userData.vcType='imported';
+    obj.userData.animationClips=gltf.animations||[];
+    obj.userData.animationMixer=new THREE.AnimationMixer(gltf.scene);
+    sceneEditorObjects.push(obj);
+   }
+  }
+  if(!sceneEditorObjects.length){
+   // Preserve a usable editor selection if the archive contains only the stage shell.
+   const editable=stage.children.filter(n=>n!==gltf.scene);
+   editable.forEach(n=>{n.userData.vcType=n.userData.vcType||'imported';sceneEditorObjects.push(n)});
+  }
+  refreshObjectList();
+
+  // Restore camera, optics, lighting and sequencer.
+  if(manifest.lighting)applyLightingData(manifest.lighting);
+  const c=manifest.camera||{};
+  if(Array.isArray(c.position))camera.position.fromArray(c.position);
+  if(Array.isArray(c.quaternion))camera.quaternion.fromArray(c.quaternion);
+  focalLength=clamp(Number(c.focalLength)||35,14,200);
+  sensorFormat=sensorFormats[c.sensorFormat]?c.sensorFormat:'fullframe';
+  aperture=clamp(Number(c.aperture)||2.8,1.4,16);
+  focusDistance=clamp(Number(c.focusDistance)||5,.3,30);
+  dofEnabled=c.dofEnabled!==false;blurStrength=clamp(Number(c.blurStrength)||18,0,30);
+  yaw=Number(c.yaw)||camera.rotation.y;pitch=Number(c.pitch)||camera.rotation.x;
+  orbitRadius=clamp(Number(c.orbitRadius)||9,2.2,35);
+  if(Array.isArray(c.orbitTarget))orbitTarget.fromArray(c.orbitTarget);
+  speed=clamp(Number(c.speed)||4,1,12);sensitivity=clamp(Number(c.sensitivity)||8,1,20);
+  document.getElementById('speed').value=speed;document.getElementById('speedValue').textContent=speed.toFixed(1);
+  document.getElementById('sensitivity').value=sensitivity;document.getElementById('sensitivityValue').textContent=String(sensitivity);
+  document.getElementById('focalLength').value=String(focalLength);document.getElementById('aperture').value=String(aperture);
+  document.getElementById('focusDistance').value=String(focusDistance);document.getElementById('blurStrength').value=String(blurStrength);
+  document.getElementById('dofToggle').textContent='Depth of Field: '+(dofEnabled?'ON':'OFF');
+  document.getElementById('dofToggle').classList.toggle('active',dofEnabled);
+  updateOptics();updateLightingUI();setMode(['free','cinematic','orbit'].includes(c.mode)?c.mode:'free');
+
+  cinematicShots=Array.isArray(manifest.cameraSequence)?manifest.cameraSequence:[];
+  selectedShotIndex=-1;sequencePlaying=false;sequenceTime=0;refreshSequenceUI();
+
+  // Restore custom pose timeline against the imported character skeleton, if present.
+  const animData=manifest.customAnimation;
+  if(animData){
+   const candidate=sceneEditorObjects.find(o=>o.userData.vcType==='imported'&&o.name===animData.characterName)
+      ||sceneEditorObjects.find(o=>o.userData.animationMixer);
+   if(candidate){
+    selectedAnimCharacter=candidate;refreshAnimationCharacters();
+    const bones=customBones();
+    const mismatch=(animData.boneNames||[]).some(x=>!bones[x.index]||(x.name&&bones[x.index].name&&x.name!==bones[x.index].name));
+    if(!mismatch&&Array.isArray(animData.keyframes)){
+     customDuration=Math.max(1,Math.min(30,Number(animData.duration)||5));
+     document.getElementById('customDuration').value=customDuration;
+     document.getElementById('customDurationLabel').textContent=customDuration.toFixed(1);
+     document.getElementById('customTimeline').max=customDuration;
+     document.getElementById('customFPS').value=String([24,25,30,60].includes(Number(animData.fps))?Number(animData.fps):24);
+     customKeyframes=animData.keyframes.map((k,i)=>({id:++customFrameId,time:Number(k.time)||0,pose:k.pose,root:k.root||null,easing:k.easing||'easeInOut'}));
+     selectedKeyframeId=customKeyframes[0]?.id??null;customPlaying=false;customTimelineActive=true;
+     setCustomTime(0);renderKeyframeList();
+    }else{customKeyframes=[];selectedKeyframeId=null;renderKeyframeList();status.textContent='Scene restored; custom animation skeleton did not match and was not applied.'}
+   }else{customKeyframes=[];selectedKeyframeId=null;renderKeyframeList();status.textContent='Scene restored; no matching rigged character was found for custom keyframes.'}
+  }else{customKeyframes=[];selectedKeyframeId=null;renderKeyframeList()}
+  status.textContent='Project restored · stage, camera, lighting and sequence loaded';
+  toast('Complete project loaded');
+ }catch(err){
+  console.error(err);status.textContent='Project load failed · '+(err.message||'invalid archive');toast('Complete project load failed');
+ }finally{btn.disabled=false;e.target.value=''}
+});
+
 // V11 Cinematic Sequencer
 let cinematicShots=[],selectedShotIndex=-1,sequencePlaying=false,sequenceTime=0,sequenceDuration=0;
 function shotDurationValue(){return Number(document.getElementById('shotDuration').value)||2}
