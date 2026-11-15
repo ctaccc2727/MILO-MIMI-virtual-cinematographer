@@ -1,32 +1,33 @@
-VIRTUAL CINEMATOGRAPHER V5 — LIGHTING STUDIO
+VIRTUAL CINEMATOGRAPHER V6 — ENVIRONMENT STUDIO
 
-V5 continues from the working V4.3 DOF FIX build. It preserves the camera modes,
-desktop controls, tablet touch controls, lens/sensor settings, and Depth of Field.
+V6 continues from V5 Lighting Studio and preserves:
+- Free, Cinematic, and Orbit camera modes
+- Keyboard movement and on-screen touch joysticks
+- Lens sensor profiles, focal length, aperture, focus distance, and DOF
+- Lighting Studio controls, presets, and JSON presets
 
-New Lighting Studio:
-- Main/key directional light: intensity, color temperature (2000K–10000K), and XYZ position.
-- Fill directional light: intensity and color.
-- Hemisphere/ambient light: intensity.
-- Rim point light: intensity and color.
-- Environment background color.
-- Fog ON/OFF and fog distance.
-- Tone-mapping exposure.
-- Daylight, Warm Interior, and Night/Moonlight presets.
-- Save/load lighting preset JSON.
-- Camera preset JSON now also includes lighting settings.
+New Environment Studio:
+- Add cube, sphere, cylinder, and plane primitives.
+- Import GLB / GLTF models through Three.js GLTFLoader.
+- Select objects from the scene object list.
+- Edit position X/Y/Z, rotation X/Y/Z, and uniform scale.
+- Change object color for mesh materials.
+- Duplicate, delete, hide/show, and reset transforms.
+- Save and load scene layouts as JSON.
 
-Known limitations:
-- This stage does not yet include HDRI image loading, physically based area lights,
-  shadow-map controls, or a full light-gizmo editor. Those are planned for later stages.
-- The lighting rig is a practical real-time preview setup, not a physically calibrated
-  film-set photometric simulator.
-- Three.js and post-processing modules load from jsDelivr CDN; internet access is required.
+Important limitations:
+- Scene JSON saves the editable primitive objects and their transforms/material color.
+- Imported GLB/GLTF model geometry is not embedded into the JSON scene file; re-import source model files after loading a scene.
+- GLTF files that depend on external texture/buffer URLs may not import from a single selected file. Self-contained GLB is recommended.
+- This stage uses numeric transform controls rather than viewport transform gizmos.
+- No claim of physical testing on every GLB rig or device. Validate your own models and GPU performance.
 
 GitHub Pages update:
-1. Open the repository root.
-2. Add file -> Upload files.
-3. Upload the new index.html and README.txt from this package, replacing the existing files.
-4. Commit changes. Keep .nojekyll unchanged.
-5. GitHub Pages automatically rebuilds from main / root.
+1. Extract this ZIP.
+2. Open the repository root.
+3. Add file -> Upload files.
+4. Upload the new index.html and README.txt, replacing existing versions.
+5. Commit changes. Keep .nojekyll.
+6. GitHub Pages rebuilds from main / root automatically.
 
-Netlify is not required for this deployment.
+Netlify is not required.

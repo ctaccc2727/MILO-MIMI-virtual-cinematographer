@@ -33,6 +33,11 @@ aside{background:var(--panel);padding:14px;overflow:auto;z-index:3}
 .presetRow{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-top:7px}
 .presetRow button{padding:6px 2px;font-size:11px}
 .presetRow button.active{background:#17415a;border-color:#3489b8}
+
+.transformGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.transformGrid label{display:grid;gap:4px;color:var(--muted);font-size:11px}
+.transformGrid input{width:100%;min-width:0;padding:6px 4px;background:#101923;border:1px solid var(--line);border-radius:6px;color:var(--text)}
+.transformGrid button{font-size:11px;padding:6px 4px}
 #leftPanel .control{font-size:12px}
 #leftPanel input[type=range]{margin:2px 0}
 .dpad{width:112px;height:104px;display:grid;grid-template-columns:repeat(3,34px);grid-template-rows:repeat(3,30px);gap:3px;pointer-events:auto}
@@ -71,7 +76,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 <body>
 <div id="app">
 <header>
- <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V5 LIGHTING STUDIO</small></div>
+ <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V6 ENVIRONMENT STUDIO</small></div>
  <div id="modeSwitch">
   <button id="freeBtn" class="active">Free Camera</button>
   <button id="cineBtn">Cinematic</button>
@@ -143,6 +148,50 @@ input[type=range]{width:100%;accent-color:var(--accent)}
    <div class="panelTitle">Scene</div>
    <button id="resetScene" class="full">Reset scene</button>
    <button id="gridToggle" class="full" style="margin-top:8px">Hide grid</button>
+  </div>
+  <div class="group">
+   <div class="panelTitle">Environment studio</div>
+   <div class="small" style="margin-bottom:8px">Create and arrange set objects. Select an object to edit its transform.</div>
+   <div class="stack">
+    <button id="addCube" class="full">＋ Add cube</button>
+    <button id="addSphere" class="full">＋ Add sphere</button>
+    <button id="addCylinder" class="full">＋ Add cylinder</button>
+    <button id="addPlane" class="full">＋ Add plane</button>
+    <button id="importModel" class="full">Import 3D model (.glb / .gltf)</button>
+    <input id="modelFile" type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" hidden>
+   </div>
+   <label class="control" style="margin-top:12px"><span>Scene objects</span></label>
+   <select id="objectSelect" class="full"><option value="">No object selected</option></select>
+   <div class="stack" style="grid-template-columns:1fr 1fr;margin-top:8px">
+    <button id="duplicateObject">Duplicate</button>
+    <button id="deleteObject">Delete</button>
+   </div>
+   <label class="control"><span>Object color</span><input id="objectColor" type="color" value="#8aa0b5" style="width:54px;height:30px;padding:2px"></label>
+   <div class="panelTitle" style="margin-top:12px">Position</div>
+   <div class="transformGrid">
+    <label>X<input id="objPosX" type="number" step="0.1" value="0"></label>
+    <label>Y<input id="objPosY" type="number" step="0.1" value="0"></label>
+    <label>Z<input id="objPosZ" type="number" step="0.1" value="0"></label>
+   </div>
+   <div class="panelTitle" style="margin-top:12px">Rotation · degrees</div>
+   <div class="transformGrid">
+    <label>X<input id="objRotX" type="number" step="5" value="0"></label>
+    <label>Y<input id="objRotY" type="number" step="5" value="0"></label>
+    <label>Z<input id="objRotZ" type="number" step="5" value="0"></label>
+   </div>
+   <div class="panelTitle" style="margin-top:12px">Scale</div>
+   <div class="transformGrid">
+    <label>Uniform<input id="objScale" type="number" min="0.01" step="0.1" value="1"></label>
+    <button id="resetTransform" style="align-self:end">Reset transform</button>
+   </div>
+   <label class="control" style="margin-top:10px"><span>Visible</span><button id="objectVisibility" class="active">Visible</button></label>
+   <div class="panelTitle" style="margin-top:14px">Scene file</div>
+   <div class="stack">
+    <button id="saveScene" class="full">Save scene (.json)</button>
+    <button id="loadScene" class="full">Load scene (.json)</button>
+    <input id="sceneFile" type="file" accept=".json,application/json" hidden>
+   </div>
+   <div class="small" style="margin-top:9px">Scene JSON stores primitive objects and their transforms. Imported GLB/GLTF files must be re-imported after reloading the page; their geometry is not embedded in the JSON yet.</div>
   </div>
   <div class="group">
    <div class="panelTitle">Lighting studio</div>
@@ -242,7 +291,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   </div>
  </aside>
 </div>
-<footer id="bottomBar"><span>V5 LIGHTING STUDIO · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
+<footer id="bottomBar"><span>V6 ENVIRONMENT STUDIO · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
 </div>
 <script type="importmap">
 {
@@ -385,10 +434,11 @@ const stage=new THREE.Group();scene.add(stage);
 const platform=new THREE.Mesh(new THREE.CylinderGeometry(3.8,3.8,.22,64),new THREE.MeshStandardMaterial({color:0x465462,metalness:.22,roughness:.65}));
 platform.position.set(0,.11,0);stage.add(platform);
 const ring=new THREE.Mesh(new THREE.TorusGeometry(3.55,.025,8,100),new THREE.MeshBasicMaterial({color:0x68caff}));ring.rotation.x=Math.PI/2;ring.position.y=.24;stage.add(ring);
-const cube=new THREE.Mesh(new THREE.BoxGeometry(1.4,1.4,1.4),new THREE.MeshStandardMaterial({color:0x6f8da5,roughness:.48,metalness:.15}));cube.position.set(-1,.92,0);stage.add(cube);
-const sphere=new THREE.Mesh(new THREE.SphereGeometry(.82,48,32),new THREE.MeshStandardMaterial({color:0xc28b68,roughness:.38}));sphere.position.set(1.35,.84,-.5);stage.add(sphere);
-const pillar=new THREE.Mesh(new THREE.CylinderGeometry(.28,.34,2.4,32),new THREE.MeshStandardMaterial({color:0x8797a5,metalness:.5,roughness:.4}));pillar.position.set(0,1.2,-2.1);stage.add(pillar);
+const cube=new THREE.Mesh(new THREE.BoxGeometry(1.4,1.4,1.4),new THREE.MeshStandardMaterial({color:0x6f8da5,roughness:.48,metalness:.15}));cube.position.set(-1,.92,0);cube.name='Cube';cube.userData.vcType='cube';stage.add(cube);
+const sphere=new THREE.Mesh(new THREE.SphereGeometry(.82,48,32),new THREE.MeshStandardMaterial({color:0xc28b68,roughness:.38}));sphere.position.set(1.35,.84,-.5);sphere.name='Sphere';sphere.userData.vcType='sphere';stage.add(sphere);
+const pillar=new THREE.Mesh(new THREE.CylinderGeometry(.28,.34,2.4,32),new THREE.MeshStandardMaterial({color:0x8797a5,metalness:.5,roughness:.4}));pillar.position.set(0,1.2,-2.1);pillar.name='Pillar';pillar.userData.vcType='cylinder';stage.add(pillar);
 const axes=new THREE.AxesHelper(1.3);axes.position.set(-3.4,.02,3.2);stage.add(axes);
+const sceneEditorObjects=[cube,sphere,pillar];let selectedSceneObject=null,objectCounter=4;
 const orbitTargets={
  center:new THREE.Vector3(0,.8,0),
  cube:cube.position.clone(),
@@ -567,6 +617,108 @@ document.getElementById('resetCamera').onclick=resetCamera;
 document.getElementById('resetScene').onclick=()=>{resetCamera();gridVisible=true;grid.visible=true;document.getElementById('gridToggle').textContent='Hide grid';toast('Scene view reset')};
 document.getElementById('gridToggle').onclick=()=>{gridVisible=!gridVisible;grid.visible=gridVisible;document.getElementById('gridToggle').textContent=gridVisible?'Hide grid':'Show grid'};
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),1400)}
+
+// Environment Studio object editing
+function objectMaterialColor(obj){
+ let color=null;obj.traverse(n=>{if(!color&&n.isMesh&&n.material&&n.material.color)color='#'+n.material.color.getHexString()});
+ return color||'#8aa0b5';
+}
+function refreshObjectList(){
+ const sel=document.getElementById('objectSelect'),previous=selectedSceneObject;
+ sel.innerHTML='';
+ if(!sceneEditorObjects.length){sel.add(new Option('No objects',''));selectedSceneObject=null;return}
+ sceneEditorObjects.forEach((o,i)=>sel.add(new Option(o.name||('Object '+(i+1)),String(i))));
+ if(previous&&sceneEditorObjects.includes(previous)){sel.value=String(sceneEditorObjects.indexOf(previous));selectedSceneObject=previous}
+ else{sel.value='0';selectedSceneObject=sceneEditorObjects[0]}
+ updateObjectEditor();
+}
+function updateObjectEditor(){
+ const o=selectedSceneObject,ids=['objPosX','objPosY','objPosZ','objRotX','objRotY','objRotZ','objScale'];
+ if(!o){ids.forEach(id=>document.getElementById(id).value='');return}
+ const vals=[o.position.x,o.position.y,o.position.z,THREE.MathUtils.radToDeg(o.rotation.x),THREE.MathUtils.radToDeg(o.rotation.y),THREE.MathUtils.radToDeg(o.rotation.z),o.scale.x];
+ ids.forEach((id,i)=>document.getElementById(id).value=Number(vals[i].toFixed(3)));
+ document.getElementById('objectColor').value=objectMaterialColor(o);
+ const vis=document.getElementById('objectVisibility');vis.textContent=o.visible?'Visible':'Hidden';vis.classList.toggle('active',o.visible);
+}
+function addSceneObject(type,source=null){
+ let obj,material;
+ const color=0x8aa0b5;
+ if(type==='cube'){material=new THREE.MeshStandardMaterial({color,roughness:.55});obj=new THREE.Mesh(new THREE.BoxGeometry(1.4,1.4,1.4),material)}
+ if(type==='sphere'){material=new THREE.MeshStandardMaterial({color,roughness:.4});obj=new THREE.Mesh(new THREE.SphereGeometry(.8,40,28),material)}
+ if(type==='cylinder'){material=new THREE.MeshStandardMaterial({color,roughness:.5});obj=new THREE.Mesh(new THREE.CylinderGeometry(.5,.5,1.8,32),material)}
+ if(type==='plane'){material=new THREE.MeshStandardMaterial({color:0x758596,roughness:.8,side:THREE.DoubleSide});obj=new THREE.Mesh(new THREE.PlaneGeometry(4,4),material);obj.rotation.x=-Math.PI/2}
+ if(!obj)return null;
+ obj.name=type[0].toUpperCase()+type.slice(1)+' '+objectCounter++;obj.userData.vcType=type;
+ obj.position.set(0,type==='plane'?.02:.9,0);stage.add(obj);sceneEditorObjects.push(obj);selectedSceneObject=obj;refreshObjectList();return obj;
+}
+function setObjectColor(hex){
+ if(!selectedSceneObject)return;
+ selectedSceneObject.traverse(n=>{if(n.isMesh&&n.material){const mats=Array.isArray(n.material)?n.material:[n.material];mats.forEach(m=>{if(m.color)m.color.set(hex)})}});
+}
+function serializeScene(){
+ return {format:'VirtualCinematographerScene',version:1,objects:sceneEditorObjects.filter(o=>o.userData.vcType!=='imported').map(o=>({
+  name:o.name,type:o.userData.vcType||'cube',position:o.position.toArray(),rotation:[o.rotation.x,o.rotation.y,o.rotation.z],scale:o.scale.toArray(),color:objectMaterialColor(o),visible:o.visible
+ })),note:'Imported GLB/GLTF geometry is not embedded. Re-import those source files after loading this scene.'};
+}
+function makeObjectFromData(d){
+ const o=addSceneObject(['cube','sphere','cylinder','plane'].includes(d.type)?d.type:'cube');
+ if(!o)return;
+ o.name=d.name||o.name;o.position.fromArray(d.position||[0,.9,0]);o.rotation.set(...(d.rotation||[0,0,0]));o.scale.fromArray(d.scale||[1,1,1]);o.visible=d.visible!==false;setObjectColor(d.color||'#8aa0b5');
+}
+document.getElementById('objectSelect').onchange=e=>{const i=Number(e.target.value);selectedSceneObject=sceneEditorObjects[i]||null;updateObjectEditor()};
+document.getElementById('addCube').onclick=()=>addSceneObject('cube');
+document.getElementById('addSphere').onclick=()=>addSceneObject('sphere');
+document.getElementById('addCylinder').onclick=()=>addSceneObject('cylinder');
+document.getElementById('addPlane').onclick=()=>addSceneObject('plane');
+document.getElementById('duplicateObject').onclick=()=>{
+ if(!selectedSceneObject)return;
+ const copy=selectedSceneObject.clone(true);copy.name=selectedSceneObject.name+' copy';copy.position.x+=.65;copy.position.z+=.45;
+ copy.userData.vcType=selectedSceneObject.userData.vcType||'cube';stage.add(copy);sceneEditorObjects.push(copy);selectedSceneObject=copy;refreshObjectList();toast('Object duplicated');
+};
+document.getElementById('deleteObject').onclick=()=>{
+ if(!selectedSceneObject)return;
+ const i=sceneEditorObjects.indexOf(selectedSceneObject);stage.remove(selectedSceneObject);sceneEditorObjects.splice(i,1);selectedSceneObject=null;refreshObjectList();toast('Object deleted');
+};
+const transformInputs={objPosX:['position','x',1],objPosY:['position','y',1],objPosZ:['position','z',1],objRotX:['rotation','x',Math.PI/180],objRotY:['rotation','y',Math.PI/180],objRotZ:['rotation','z',Math.PI/180]};
+Object.entries(transformInputs).forEach(([id,[prop,axis,factor]])=>document.getElementById(id).onchange=e=>{if(selectedSceneObject){selectedSceneObject[prop][axis]=Number(e.target.value)*factor;updateObjectEditor()}});
+document.getElementById('objScale').onchange=e=>{if(selectedSceneObject){const s=Math.max(.01,Number(e.target.value)||1);selectedSceneObject.scale.setScalar(s);updateObjectEditor()}};
+document.getElementById('objectColor').oninput=e=>setObjectColor(e.target.value);
+document.getElementById('objectVisibility').onclick=()=>{if(selectedSceneObject){selectedSceneObject.visible=!selectedSceneObject.visible;updateObjectEditor()}};
+document.getElementById('resetTransform').onclick=()=>{if(selectedSceneObject){selectedSceneObject.position.set(0,.9,0);selectedSceneObject.rotation.set(0,0,0);selectedSceneObject.scale.setScalar(1);updateObjectEditor()}};
+document.getElementById('saveScene').onclick=()=>{
+ const data=serializeScene(),blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='virtual-cinematographer-scene.json';a.click();URL.revokeObjectURL(url);
+ const imported=sceneEditorObjects.filter(o=>o.userData.vcType==='imported').length;
+ toast(imported?'Scene saved · re-import GLB models after loading':'Scene saved');
+};
+document.getElementById('loadScene').onclick=()=>document.getElementById('sceneFile').click();
+document.getElementById('sceneFile').addEventListener('change',async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ try{
+  const data=JSON.parse(await file.text());if(data.format!=='VirtualCinematographerScene'||!Array.isArray(data.objects))throw new Error('Invalid scene');
+  sceneEditorObjects.forEach(o=>stage.remove(o));sceneEditorObjects.length=0;selectedSceneObject=null;
+  data.objects.forEach(makeObjectFromData);refreshObjectList();toast('Scene loaded');
+ }catch(err){toast('Could not load scene JSON')}
+ e.target.value='';
+});
+document.getElementById('importModel').onclick=()=>document.getElementById('modelFile').click();
+document.getElementById('modelFile').addEventListener('change',async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ try{
+  const {GLTFLoader}=await import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js');
+  const loader=new GLTFLoader(),buffer=await file.arrayBuffer();
+  const gltf=await new Promise((resolve,reject)=>loader.parse(buffer,'',resolve,reject));
+  const model=gltf.scene;model.name=file.name.replace(/\.(glb|gltf)$/i,'');model.userData.vcType='imported';
+  const box=new THREE.Box3().setFromObject(model),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());
+  model.position.sub(center);
+  const maxDim=Math.max(size.x,size.y,size.z)||1;model.scale.setScalar(2.5/maxDim);model.position.y+=.9;
+  stage.add(model);sceneEditorObjects.push(model);selectedSceneObject=model;refreshObjectList();
+  toast('3D model imported');
+ }catch(err){console.error(err);toast('Import failed · use self-contained GLB')}
+ e.target.value='';
+});
+refreshObjectList();
+
 const codeMap={KeyW:'w',ArrowUp:'w',KeyA:'a',ArrowLeft:'a',KeyS:'s',ArrowDown:'s',KeyD:'d',ArrowRight:'d',KeyQ:'q',KeyE:'e',ShiftLeft:'shift',ShiftRight:'shift'};
 window.addEventListener('keydown',e=>{
  const k=codeMap[e.code];
