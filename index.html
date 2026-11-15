@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#10151d">
+<title>Virtual Cinematographer — V1</title>
+<style>
+:root{--bg:#10151d;--panel:#171f2a;--panel2:#202b38;--line:#344253;--text:#e8eef5;--muted:#91a0b2;--accent:#66c7ff;--danger:#ff7777}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:14px/1.35 Inter,system-ui,Segoe UI,Arial,sans-serif;touch-action:none}
+#app{position:relative;width:100%;height:100%;display:grid;grid-template-rows:54px 1fr 34px}
+header{display:flex;align-items:center;gap:12px;padding:0 14px;background:#121923;border-bottom:1px solid var(--line);z-index:5}
+.brand{font-weight:750;letter-spacing:.04em;white-space:nowrap}.brand span{color:var(--accent)}
+#modeSwitch{display:flex;gap:4px;margin-left:auto;background:#0c1118;padding:4px;border:1px solid var(--line);border-radius:9px}
+button,select{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px}
+button{cursor:pointer;user-select:none;-webkit-user-select:none}
+button:active{transform:translateY(1px)}button.active{background:#17415a;border-color:#3489b8;color:#fff}
+#workspace{position:relative;min-height:0;display:grid;grid-template-columns:250px minmax(0,1fr) 230px}
+aside{background:var(--panel);padding:14px;overflow:auto;z-index:3}
+#leftPanel{border-right:1px solid var(--line)}#rightPanel{border-left:1px solid var(--line)}
+.panelTitle{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:4px 0 12px}
+.group{border-bottom:1px solid var(--line);padding:0 0 14px;margin-bottom:14px}
+.control{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:9px 0;color:var(--muted)}
+.control strong{color:var(--text);font-weight:550}
+#viewport{position:relative;min-width:0;min-height:0;background:#111923;overflow:hidden}
+#view{display:block;width:100%;height:100%;outline:none}
+#viewportHint{position:absolute;top:12px;left:12px;padding:7px 10px;border-radius:7px;background:#0c121bd9;border:1px solid #344253;color:#bdc9d7;font-size:12px;pointer-events:none}
+#crosshair{position:absolute;left:50%;top:50%;width:8px;height:8px;border:1px solid #ffffff88;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none}
+#bottomBar{display:flex;align-items:center;justify-content:space-between;padding:0 12px;background:#121923;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
+.small{font-size:12px;color:var(--muted)}.full{width:100%}.stack{display:grid;gap:8px}
+#touchControls{display:none;position:absolute;inset:0;pointer-events:none;z-index:4}
+#desktopControls{position:absolute;left:14px;bottom:14px;display:flex;align-items:end;gap:12px;z-index:4;pointer-events:none}
+.presetRow{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-top:7px}
+.presetRow button{padding:6px 2px;font-size:11px}
+.presetRow button.active{background:#17415a;border-color:#3489b8}
+#leftPanel .control{font-size:12px}
+#leftPanel input[type=range]{margin:2px 0}
+.dpad{width:112px;height:104px;display:grid;grid-template-columns:repeat(3,34px);grid-template-rows:repeat(3,30px);gap:3px;pointer-events:auto}
+.dpad button,.desktopHeight button{padding:0;background:#101923c9;border-color:#9bb5ca77;color:#e9f5ff;font-size:11px;touch-action:none}
+.dpad .up{grid-column:2;grid-row:1}.dpad .left{grid-column:1;grid-row:2}.dpad .down{grid-column:2;grid-row:2}.dpad .right{grid-column:3;grid-row:2}
+.desktopHeight{display:grid;gap:5px;pointer-events:auto}.desktopHeight button{width:34px;height:31px;font-size:16px}
+.joy{position:absolute;bottom:20px;width:124px;height:124px;border-radius:50%;background:#10192388;border:1px solid #a9c5dc66;pointer-events:auto;touch-action:none}
+#joyMove{left:18px}#joyLook{right:18px}
+.knob{position:absolute;left:50%;top:50%;width:48px;height:48px;border-radius:50%;transform:translate(-50%,-50%);background:#72caffbb;border:1px solid #d5f1ff;box-shadow:0 2px 12px #0008}
+#verticalButtons{position:absolute;right:162px;bottom:38px;display:grid;gap:8px;pointer-events:auto}
+#verticalButtons button{width:48px;height:44px;padding:0;font-size:18px;background:#182534dd}
+#touchLabels{position:absolute;bottom:151px;left:22px;right:22px;display:flex;justify-content:space-between;color:#e5f4ff99;font-size:10px;pointer-events:none}
+kbd{background:#0b1118;border:1px solid var(--line);border-radius:4px;padding:2px 5px;color:#dce7f1}
+input[type=range]{width:100%;accent-color:var(--accent)}
+#toast{position:absolute;left:50%;top:16px;transform:translateX(-50%);padding:8px 12px;background:#101923ee;border:1px solid var(--line);border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:8}
+#toast.show{opacity:1}
+@media(max-width:900px){
+ #workspace{grid-template-columns:190px minmax(0,1fr)}
+ #rightPanel{display:none}
+}
+@media(max-width:650px){
+ #app{grid-template-rows:48px 1fr 28px}
+ header{padding:0 8px;gap:6px}.brand{font-size:12px}
+ #workspace{display:block}
+ #leftPanel,#rightPanel{display:none}
+ #viewport{position:absolute;inset:0}
+ #modeSwitch button{padding:6px 8px;font-size:11px}
+ #touchControls{display:block}
+ #desktopControls{display:none}
+ #viewportHint{top:8px;left:8px;font-size:10px}
+ #bottomBar{font-size:10px}
+}
+@media (pointer:coarse) and (min-width:651px){#touchControls{display:block}#desktopControls{display:none}}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+ <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V4.3 DOF FIX</small></div>
+ <div id="modeSwitch">
+  <button id="freeBtn" class="active">Free Camera</button>
+  <button id="cineBtn">Cinematic</button>
+  <button id="orbitBtn">Orbit</button>
+ </div>
+ <button id="resetCamera" title="Reset camera">↺</button>
+</header>
+<div id="workspace">
+ <aside id="leftPanel">
+  <div class="panelTitle">Camera controls</div>
+  <div class="group">
+   <div class="control"><span>Mode</span><strong id="modeName">Free Camera</strong></div>
+   <div class="small">Desktop: click viewport to capture mouse. Press <kbd>Esc</kbd> to release.</div>
+   <div class="small" style="margin-top:8px">Move: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> · Height: <kbd>Q</kbd>/<kbd>E</kbd> · Faster: <kbd>Shift</kbd></div>
+  </div>
+  <div class="group">
+   <div class="panelTitle">Movement speed</div>
+   <input id="speed" type="range" min="1" max="12" value="4">
+   <div class="control"><span>Speed</span><strong id="speedValue">4.0</strong></div>
+  </div>
+  <div class="group">
+   <div class="panelTitle">Mouse sensitivity</div>
+   <input id="sensitivity" type="range" min="1" max="20" value="8">
+   <div class="control"><span>Sensitivity</span><strong id="sensitivityValue">8</strong></div>
+  </div>
+  <div class="group">
+   <div class="panelTitle">Orbit target</div>
+   <select id="orbitTarget" class="full">
+    <option value="center">Studio center</option>
+    <option value="cube">Cube</option>
+    <option value="sphere">Sphere</option>
+    <option value="pillar">Pillar</option>
+   </select>
+   <div class="small" style="margin-top:7px">Orbit mode rotates around the selected target. Use mouse drag and the wheel to zoom.</div>
+  </div>
+  <div class="group">
+   <div class="panelTitle">Camera optics</div>
+   <label class="control"><span>Sensor format</span></label>
+   <select id="sensorFormat" class="full">
+    <option value="fullframe">Full Frame · 36 × 24 mm</option>
+    <option value="super35">Super 35 · 24.89 × 18.66 mm</option>
+    <option value="alexa35">ARRI ALEXA 35 · 27.99 × 19.22 mm</option>
+   </select>
+   <label class="control"><span>Focal length</span><strong><span id="focalValue">35</span> mm</strong></label>
+   <input id="focalLength" type="range" min="14" max="200" value="35">
+   <div class="presetRow">
+    <button data-focal="18">18</button><button data-focal="24">24</button><button data-focal="35" class="active">35</button><button data-focal="50">50</button><button data-focal="85">85</button><button data-focal="135">135</button>
+   </div>
+   <div class="control"><span>Vertical FOV</span><strong id="fovValue">—</strong></div>
+   <div class="panelTitle" style="margin-top:13px">Lens metadata</div>
+   <label class="control"><span>Aperture</span><strong>f/<span id="apertureValue">2.8</span></strong></label>
+   <input id="aperture" type="range" min="1.4" max="16" step="0.1" value="2.8">
+   <label class="control"><span>Focus distance</span><strong><span id="focusValue">5.0</span> m</strong></label>
+   <input id="focusDistance" type="range" min="0.3" max="30" step="0.1" value="5">
+   <div class="panelTitle" style="margin-top:13px">Depth of Field</div>
+   <button id="dofToggle" class="full active">Depth of Field: ON</button>
+   <label class="control"><span>Blur strength</span><strong id="blurValue">0.010</strong></label>
+   <input id="blurStrength" type="range" min="0" max="30" step="1" value="18">
+   <button id="rackFocus" class="full" style="margin-top:8px">Rack Focus Demo</button>
+   <div class="small" style="margin-top:8px">Focus is measured along the camera view in scene units. Try f/1.4 and blur 18–25 for a visible test.</div>
+  </div>
+  <div class="group">
+   <div class="panelTitle">Camera preset</div>
+   <button id="savePreset" class="full">Save camera preset (.json)</button>
+   <button id="loadPreset" class="full" style="margin-top:7px">Load camera preset (.json)</button>
+   <input id="presetFile" type="file" accept=".json,application/json" hidden>
+  </div>
+  <div class="group">
+   <div class="panelTitle">Scene</div>
+   <button id="resetScene" class="full">Reset scene</button>
+   <button id="gridToggle" class="full" style="margin-top:8px">Hide grid</button>
+  </div>
+ </aside>
+ <main id="viewport">
+  <canvas id="view"></canvas>
+  <div id="viewportHint">Drag to look · WASD / arrows to move · Orbit mode available</div>
+  <div id="crosshair"></div>
+  <div id="toast"></div>
+  <div id="desktopControls" aria-label="Desktop movement controls">
+   <div class="dpad">
+    <button data-hold="w" class="up">W</button>
+    <button data-hold="a" class="left">A</button>
+    <button data-hold="s" class="down">S</button>
+    <button data-hold="d" class="right">D</button>
+   </div>
+   <div class="desktopHeight">
+    <button data-hold="e">＋</button><button data-hold="q">－</button>
+   </div>
+  </div>
+  <div id="touchControls">
+   <div id="joyMove" class="joy"><div class="knob"></div></div>
+   <div id="joyLook" class="joy"><div class="knob"></div></div>
+   <div id="verticalButtons"><button id="upBtn">＋</button><button id="downBtn">－</button></div>
+   <div id="touchLabels"><span>MOVE</span><span>LOOK</span></div>
+  </div>
+ </main>
+ <aside id="rightPanel">
+  <div class="panelTitle">Camera status</div>
+  <div class="group">
+   <div class="control"><span>Position X</span><strong id="posX">0.00</strong></div>
+   <div class="control"><span>Position Y</span><strong id="posY">2.00</strong></div>
+   <div class="control"><span>Position Z</span><strong id="posZ">8.00</strong></div>
+   <div class="control"><span>Heading</span><strong id="heading">0°</strong></div>
+  </div>
+  <div class="group">
+   <div class="panelTitle">Lens status</div>
+   <div class="control"><span>Focal length</span><strong id="statusFocal">35 mm</strong></div>
+   <div class="control"><span>Sensor</span><strong id="statusSensor">Full Frame</strong></div>
+   <div class="control"><span>Vertical FOV</span><strong id="statusFov">—</strong></div>
+  </div>
+  <div class="group">
+   <div class="panelTitle">Depth of Field status</div>
+   <div class="control"><span>Effect</span><strong id="dofStatus">ON</strong></div>
+   <div class="control"><span>Blur</span><strong id="blurStatus">0.010</strong></div>
+  </div>
+  <div class="group">
+   <div class="panelTitle">Cinematic mode</div>
+   <div class="small">A slower, damped camera response for deliberate operator moves. Switch modes at any time.</div>
+  </div>
+  <div class="group">
+   <div class="panelTitle">System</div>
+   <div class="control"><span>Input</span><strong id="inputType">Auto</strong></div>
+   <div class="control"><span>Motion</span><strong id="motionState">Idle</strong></div>
+  </div>
+ </aside>
+</div>
+<footer id="bottomBar"><span>V4.3 DOF FIX · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
+</div>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+const canvas=document.getElementById('view');
+const viewport=document.getElementById('viewport');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.05;
+let composer=null, bokehPass=null, dofAvailable=false;
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x182431);
+scene.fog=new THREE.Fog(0x182431,28,90);
+const camera=new THREE.PerspectiveCamera(55,1,.1,300);
+const sensorFormats={
+ fullframe:{label:'Full Frame',height:24},
+ super35:{label:'Super 35',height:18.66},
+ alexa35:{label:'ALEXA 35',height:19.22}
+};
+let focalLength=35, aperture=2.8, focusDistance=5, sensorFormat='fullframe';
+let dofEnabled=true, blurStrength=18, rackFocusTimer=null;
+async function initializeDOF(){
+ try{
+  const [{EffectComposer},{RenderPass},{BokehPass}]=await Promise.all([
+   import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js'),
+   import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/RenderPass.js'),
+   import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/BokehPass.js')
+  ]);
+  const nextComposer=new EffectComposer(renderer);
+  nextComposer.addPass(new RenderPass(scene,camera));
+  const nextBokeh=new BokehPass(scene,camera,{
+   focus:focusDistance,aperture:0.00008,maxblur:0.01,
+   width:Math.max(1,viewport.clientWidth),height:Math.max(1,viewport.clientHeight)
+  });
+  nextComposer.addPass(nextBokeh);
+  composer=nextComposer;bokehPass=nextBokeh;dofAvailable=true;
+  updateDOF();
+  toast('Depth of Field ready');
+ }catch(err){
+  composer=null;bokehPass=null;dofAvailable=false;dofEnabled=false;
+  updateDOF();
+  toast('3D scene running · DOF unavailable');
+ }
+}
+function updateDOF(){
+ if(bokehPass){
+  const apertureScale=Math.pow(2.8/Math.max(1.4,aperture),2);
+  bokehPass.uniforms['focus'].value=focusDistance;
+  bokehPass.uniforms['aperture'].value=0.025*apertureScale;
+  bokehPass.uniforms['maxblur'].value=blurStrength/1000;
+  bokehPass.enabled=dofEnabled;
+ }
+ const toggle=document.getElementById('dofToggle');
+ if(toggle){toggle.textContent=dofAvailable?('Depth of Field: '+(dofEnabled?'ON':'OFF')):'Depth of Field: UNAVAILABLE';toggle.classList.toggle('active',dofAvailable && dofEnabled);toggle.disabled=!dofAvailable;}
+ document.getElementById('blurValue').textContent=(blurStrength/1000).toFixed(3);
+ document.getElementById('dofStatus').textContent=dofAvailable?(dofEnabled?'ON':'OFF'):'Unavailable — module load failed';
+ document.getElementById('blurStatus').textContent=(blurStrength/1000).toFixed(3);
+}
+function updateOptics(){
+ const sensor=sensorFormats[sensorFormat]||sensorFormats.fullframe;
+ const fov=THREE.MathUtils.radToDeg(2*Math.atan(sensor.height/(2*focalLength)));
+ camera.fov=fov;camera.updateProjectionMatrix();
+ document.getElementById('focalValue').textContent=String(focalLength);
+ document.getElementById('apertureValue').textContent=aperture.toFixed(1);
+ document.getElementById('focusValue').textContent=focusDistance.toFixed(1);
+ document.getElementById('fovValue').textContent=fov.toFixed(1)+'°';
+ document.getElementById('statusFocal').textContent=focalLength+' mm';
+ document.getElementById('statusSensor').textContent=sensor.label;
+ document.getElementById('statusFov').textContent=fov.toFixed(1)+'°';
+ document.getElementById('focalLength').value=String(focalLength);
+ document.getElementById('aperture').value=String(aperture);
+ document.getElementById('focusDistance').value=String(focusDistance);
+ document.getElementById('sensorFormat').value=sensorFormat;
+ document.querySelectorAll('[data-focal]').forEach(b=>b.classList.toggle('active',Number(b.dataset.focal)===focalLength));
+ updateDOF();
+}
+
+const home={position:new THREE.Vector3(0,2,8),yaw:0,pitch:-.12};
+let yaw=home.yaw,pitch=home.pitch,mode='free',speed=4,sensitivity=8,gridVisible=true;
+let orbitRadius=9, orbitTarget=null, dragActive=false, lastPointer={x:0,y:0};
+camera.position.copy(home.position);
+const hemi=new THREE.HemisphereLight(0xbfdcff,0x27313c,1.45);scene.add(hemi);
+const key=new THREE.DirectionalLight(0xffe2bd,2.4);key.position.set(-6,10,5);scene.add(key);
+const fill=new THREE.DirectionalLight(0x7bbcff,.8);fill.position.set(7,5,-6);scene.add(fill);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.MeshStandardMaterial({color:0x303b46,roughness:.88}));
+floor.rotation.x=-Math.PI/2;floor.position.y=-.02;scene.add(floor);
+const grid=new THREE.GridHelper(100,100,0x71869a,0x465766);grid.position.y=.005;scene.add(grid);
+const stage=new THREE.Group();scene.add(stage);
+const platform=new THREE.Mesh(new THREE.CylinderGeometry(3.8,3.8,.22,64),new THREE.MeshStandardMaterial({color:0x465462,metalness:.22,roughness:.65}));
+platform.position.set(0,.11,0);stage.add(platform);
+const ring=new THREE.Mesh(new THREE.TorusGeometry(3.55,.025,8,100),new THREE.MeshBasicMaterial({color:0x68caff}));ring.rotation.x=Math.PI/2;ring.position.y=.24;stage.add(ring);
+const cube=new THREE.Mesh(new THREE.BoxGeometry(1.4,1.4,1.4),new THREE.MeshStandardMaterial({color:0x6f8da5,roughness:.48,metalness:.15}));cube.position.set(-1,.92,0);stage.add(cube);
+const sphere=new THREE.Mesh(new THREE.SphereGeometry(.82,48,32),new THREE.MeshStandardMaterial({color:0xc28b68,roughness:.38}));sphere.position.set(1.35,.84,-.5);stage.add(sphere);
+const pillar=new THREE.Mesh(new THREE.CylinderGeometry(.28,.34,2.4,32),new THREE.MeshStandardMaterial({color:0x8797a5,metalness:.5,roughness:.4}));pillar.position.set(0,1.2,-2.1);stage.add(pillar);
+const axes=new THREE.AxesHelper(1.3);axes.position.set(-3.4,.02,3.2);stage.add(axes);
+const orbitTargets={
+ center:new THREE.Vector3(0,.8,0),
+ cube:cube.position.clone(),
+ sphere:sphere.position.clone(),
+ pillar:pillar.position.clone()
+};
+orbitTarget=orbitTargets.center.clone();
+function resize(){const w=Math.max(1,viewport.clientWidth),h=Math.max(1,viewport.clientHeight);renderer.setSize(w,h,false);if(composer)composer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix()}
+new ResizeObserver(resize).observe(viewport);resize();
+
+const keys=new Set();let moveJoy={x:0,y:0},lookJoy={x:0,y:0},vertical=0;
+let captured=false,lastTime=performance.now(),pointerLook=false;
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function updateCamera(dt){
+ const damp=mode==='cinematic'?0.62:1;
+ const fast=keys.has('shift')?2.4:1;
+ const fwd=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
+ const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
+ let mx=(keys.has('d')?1:0)-(keys.has('a')?1:0)+moveJoy.x;
+ let mz=(keys.has('s')?1:0)-(keys.has('w')?1:0)+moveJoy.y;
+ let vy=(keys.has('e')?1:0)-(keys.has('q')?1:0)+vertical;
+ const step=speed*fast*damp*dt;
+ if(mode==='orbit'){
+  yaw += ((keys.has('d')?1:0)-(keys.has('a')?1:0))*dt*.9;
+  orbitRadius=clamp(orbitRadius+((keys.has('s')?1:0)-(keys.has('w')?1:0))*step*1.5,2.2,35);
+  orbitTarget.y=clamp(orbitTarget.y+vy*step,0,12);
+  pitch=clamp(pitch,-1.25,1.25);
+  const cp=Math.cos(pitch);
+  camera.position.set(
+   orbitTarget.x+Math.sin(yaw)*cp*orbitRadius,
+   orbitTarget.y+Math.sin(-pitch)*orbitRadius,
+   orbitTarget.z+Math.cos(yaw)*cp*orbitRadius
+  );
+  camera.lookAt(orbitTarget);
+ }else{
+  const move=new THREE.Vector3().addScaledVector(right,mx).addScaledVector(fwd,-mz);
+  if(move.lengthSq()>1)move.normalize();
+  camera.position.addScaledVector(move,step);
+  camera.position.y=clamp(camera.position.y+vy*step,0.25,30);
+  camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=pitch;
+ }
+}
+function updateUI(){
+ document.getElementById('posX').textContent=camera.position.x.toFixed(2);
+ document.getElementById('posY').textContent=camera.position.y.toFixed(2);
+ document.getElementById('posZ').textContent=camera.position.z.toFixed(2);
+ document.getElementById('heading').textContent=(THREE.MathUtils.radToDeg(yaw).toFixed(0))+'°';
+ const active=keys.size>0||Math.abs(moveJoy.x)+Math.abs(moveJoy.y)+Math.abs(lookJoy.x)+Math.abs(lookJoy.y)>0||vertical!==0;
+ document.getElementById('motionState').textContent=active?'Moving':'Idle';
+}
+function loop(now){
+ requestAnimationFrame(loop);
+ const dt=Math.min((now-lastTime)/1000,.05);lastTime=now;
+ updateCamera(dt);
+ if(composer){
+  try{composer.render()}
+  catch(err){composer=null;bokehPass=null;dofAvailable=false;dofEnabled=false;updateDOF();renderer.render(scene,camera);toast('DOF disabled · standard 3D rendering active')}
+ }else{renderer.render(scene,camera)}
+ updateUI()
+}
+updateOptics();
+requestAnimationFrame(loop);
+initializeDOF();
+
+function setMode(next){
+ if(next==='orbit' && mode!=='orbit'){
+  const t=orbitTargets[document.getElementById('orbitTarget').value]||orbitTargets.center;
+  orbitTarget=t.clone();
+  const offset=camera.position.clone().sub(orbitTarget);
+  orbitRadius=Math.max(2.2,offset.length());
+  yaw=Math.atan2(offset.x,offset.z);
+  pitch=-Math.asin(clamp(offset.y/orbitRadius,-.95,.95));
+ }
+ mode=next;
+ document.getElementById('freeBtn').classList.toggle('active',mode==='free');
+ document.getElementById('cineBtn').classList.toggle('active',mode==='cinematic');
+ document.getElementById('orbitBtn').classList.toggle('active',mode==='orbit');
+ document.getElementById('modeName').textContent=mode==='free'?'Free Camera':mode==='cinematic'?'Cinematic Camera':'Orbit Camera';
+ toast(mode==='free'?'Free Camera enabled':mode==='cinematic'?'Cinematic Camera enabled':'Orbit Camera enabled');
+}
+document.getElementById('freeBtn').onclick=()=>setMode('free');
+document.getElementById('cineBtn').onclick=()=>setMode('cinematic');
+document.getElementById('orbitBtn').onclick=()=>setMode('orbit');
+document.getElementById('orbitTarget').onchange=e=>{
+ const t=orbitTargets[e.target.value]||orbitTargets.center;
+ if(mode==='orbit'){orbitTarget=t.clone();orbitRadius=Math.max(2.2,camera.position.distanceTo(orbitTarget));}
+};
+document.getElementById('speed').oninput=e=>{speed=Number(e.target.value);document.getElementById('speedValue').textContent=speed.toFixed(1)};
+document.getElementById('sensitivity').oninput=e=>{sensitivity=Number(e.target.value);document.getElementById('sensitivityValue').textContent=String(sensitivity)};
+document.getElementById('sensorFormat').onchange=e=>{sensorFormat=e.target.value;updateOptics()};
+document.getElementById('focalLength').oninput=e=>{focalLength=Number(e.target.value);updateOptics()};
+document.getElementById('aperture').oninput=e=>{aperture=Number(e.target.value);updateOptics()};
+document.getElementById('focusDistance').oninput=e=>{focusDistance=Number(e.target.value);updateOptics()};
+document.getElementById('blurStrength').oninput=e=>{blurStrength=Number(e.target.value);updateDOF()};
+document.getElementById('dofToggle').onclick=()=>{dofEnabled=!dofEnabled;updateDOF();toast('Depth of Field '+(dofEnabled?'enabled':'disabled'))};
+document.getElementById('rackFocus').onclick=()=>{
+ const sequence=[6.5,8.5,11.5,8.5];let i=0;
+ if(rackFocusTimer)clearInterval(rackFocusTimer);
+ rackFocusTimer=setInterval(()=>{
+  focusDistance=sequence[i++%sequence.length];
+  document.getElementById('focusDistance').value=String(focusDistance);
+  updateOptics();
+ },850);
+ toast('Rack Focus demo running');
+ setTimeout(()=>{if(rackFocusTimer){clearInterval(rackFocusTimer);rackFocusTimer=null}},3600);
+};
+document.querySelectorAll('[data-focal]').forEach(b=>b.addEventListener('click',()=>{focalLength=Number(b.dataset.focal);updateOptics()}));
+function cameraPresetData(){
+ return {
+  format:'VirtualCinematographerCameraPreset',version:1,
+  camera:{position:{x:camera.position.x,y:camera.position.y,z:camera.position.z},yaw,pitch,mode,orbitRadius,orbitTarget:{x:orbitTarget.x,y:orbitTarget.y,z:orbitTarget.z}},
+  optics:{sensorFormat,focalLength,aperture,focusDistance,dofEnabled,blurStrength},
+  controls:{speed,sensitivity}
+ };
+}
+document.getElementById('savePreset').onclick=()=>{
+ const blob=new Blob([JSON.stringify(cameraPresetData(),null,2)],{type:'application/json'});
+ const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='virtual-camera-preset.json';a.click();URL.revokeObjectURL(url);toast('Camera preset saved');
+};
+document.getElementById('loadPreset').onclick=()=>document.getElementById('presetFile').click();
+document.getElementById('presetFile').addEventListener('change',async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ try{
+  const data=JSON.parse(await file.text());
+  if(data.format!=='VirtualCinematographerCameraPreset'||!data.camera||!data.optics)throw new Error('Invalid camera preset');
+  const c=data.camera,o=data.optics;
+  camera.position.set(Number(c.position.x),Number(c.position.y),Number(c.position.z));
+  yaw=Number(c.yaw)||0;pitch=Number(c.pitch)||0;
+  focalLength=clamp(Number(o.focalLength)||35,14,200);
+  aperture=clamp(Number(o.aperture)||2.8,1.4,16);
+  focusDistance=clamp(Number(o.focusDistance)||5,.3,30);
+  sensorFormat=sensorFormats[o.sensorFormat]?o.sensorFormat:'fullframe';
+  dofEnabled=o.dofEnabled!==false;blurStrength=clamp(Number(o.blurStrength)||10,0,30);document.getElementById('blurStrength').value=String(blurStrength);
+  if(data.controls){speed=clamp(Number(data.controls.speed)||4,1,12);sensitivity=clamp(Number(data.controls.sensitivity)||8,1,20);document.getElementById('speed').value=speed;document.getElementById('speedValue').textContent=speed.toFixed(1);document.getElementById('sensitivity').value=sensitivity;document.getElementById('sensitivityValue').textContent=String(sensitivity)}
+  if(c.orbitTarget)orbitTarget.set(Number(c.orbitTarget.x)||0,Number(c.orbitTarget.y)||.8,Number(c.orbitTarget.z)||0);
+  orbitRadius=clamp(Number(c.orbitRadius)||9,2.2,35);
+  setMode(['free','cinematic','orbit'].includes(c.mode)?c.mode:'free');
+  updateOptics();toast('Camera preset loaded');
+ }catch(err){toast('Could not load preset: invalid file')}
+ e.target.value='';
+});
+function resetCamera(){if(mode!=='free')setMode('free');camera.position.copy(home.position);yaw=home.yaw;pitch=home.pitch;orbitRadius=9;orbitTarget=orbitTargets.center.clone();moveJoy={x:0,y:0};lookJoy={x:0,y:0};vertical=0;toast('Camera reset')}
+document.getElementById('resetCamera').onclick=resetCamera;
+document.getElementById('resetScene').onclick=()=>{resetCamera();gridVisible=true;grid.visible=true;document.getElementById('gridToggle').textContent='Hide grid';toast('Scene view reset')};
+document.getElementById('gridToggle').onclick=()=>{gridVisible=!gridVisible;grid.visible=gridVisible;document.getElementById('gridToggle').textContent=gridVisible?'Hide grid':'Show grid'};
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),1400)}
+const codeMap={KeyW:'w',ArrowUp:'w',KeyA:'a',ArrowLeft:'a',KeyS:'s',ArrowDown:'s',KeyD:'d',ArrowRight:'d',KeyQ:'q',KeyE:'e',ShiftLeft:'shift',ShiftRight:'shift'};
+window.addEventListener('keydown',e=>{
+ const k=codeMap[e.code];
+ if(k){keys.add(k);e.preventDefault()}
+});
+window.addEventListener('keyup',e=>{const k=codeMap[e.code];if(k)keys.delete(k)});
+window.addEventListener('blur',()=>{keys.clear();vertical=0;moveJoy={x:0,y:0};lookJoy={x:0,y:0};dragActive=false});
+canvas.addEventListener('pointerdown',e=>{
+ if(e.pointerType==='mouse' && e.button===0){dragActive=true;lastPointer={x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId)}
+});
+canvas.addEventListener('pointermove',e=>{
+ if(dragActive && e.pointerType==='mouse'){
+  const dx=e.clientX-lastPointer.x,dy=e.clientY-lastPointer.y;
+  lastPointer={x:e.clientX,y:e.clientY};
+  yaw-=dx*.0022*(sensitivity/8);
+  pitch=clamp(pitch-dy*.0022*(sensitivity/8),-1.45,1.45);
+ }
+});
+const stopDrag=()=>{dragActive=false};
+canvas.addEventListener('pointerup',stopDrag);canvas.addEventListener('pointercancel',stopDrag);canvas.addEventListener('lostpointercapture',stopDrag);
+viewport.addEventListener('wheel',e=>{
+ if(mode==='orbit'){orbitRadius=clamp(orbitRadius+Math.sign(e.deltaY)*.65,2.2,35);e.preventDefault()}
+},{passive:false});
+document.querySelectorAll('[data-hold]').forEach(btn=>{
+ const k=btn.dataset.hold;
+ const down=e=>{e.preventDefault();keys.add(k)};
+ const up=()=>keys.delete(k);
+ btn.addEventListener('pointerdown',down);btn.addEventListener('pointerup',up);
+ btn.addEventListener('pointercancel',up);btn.addEventListener('lostpointercapture',up);
+});
+function bindJoystick(id,which){
+ const el=document.getElementById(id),knob=el.querySelector('.knob');let activeId=null,center={x:0,y:0};
+ const set=(x,y)=>{const r=el.getBoundingClientRect(),max=r.width*.34;let dx=x-center.x,dy=y-center.y;const len=Math.hypot(dx,dy);if(len>max){dx=dx/len*max;dy=dy/len*max}knob.style.left=`calc(50% + ${dx}px)`;knob.style.top=`calc(50% + ${dy}px)`;const v={x:dx/max,y:dy/max};if(which==='move')moveJoy=v;else lookJoy=v};
+ const end=()=>{activeId=null;knob.style.left='50%';knob.style.top='50%';if(which==='move')moveJoy={x:0,y:0};else lookJoy={x:0,y:0}};
+ el.addEventListener('pointerdown',e=>{e.preventDefault();activeId=e.pointerId;const r=el.getBoundingClientRect();center={x:r.left+r.width/2,y:r.top+r.height/2};el.setPointerCapture(e.pointerId);set(e.clientX,e.clientY)});
+ el.addEventListener('pointermove',e=>{if(e.pointerId===activeId){e.preventDefault();set(e.clientX,e.clientY)}});
+ el.addEventListener('pointerup',e=>{if(e.pointerId===activeId)end()});
+ el.addEventListener('pointercancel',end);el.addEventListener('lostpointercapture',end);
+}
+bindJoystick('joyMove','move');bindJoystick('joyLook','look');
+function holdButton(id,val){const el=document.getElementById(id);const on=e=>{e.preventDefault();vertical=val},off=()=>{if(vertical===val)vertical=0};el.addEventListener('pointerdown',on);el.addEventListener('pointerup',off);el.addEventListener('pointercancel',off);el.addEventListener('lostpointercapture',off)}
+holdButton('upBtn',1);holdButton('downBtn',-1);
+document.getElementById('inputType').textContent=matchMedia('(pointer:coarse)').matches?'Touch':'Mouse / Keyboard';
+document.getElementById('deviceLabel').textContent=matchMedia('(max-width:650px)').matches?'Tablet / Mobile layout':'Desktop / Adaptive layout';
+if(matchMedia('(pointer:coarse)').matches)document.getElementById('viewportHint').textContent='Left stick: move · Right stick: look · ＋ / －: height';
+else document.getElementById('viewportHint').textContent='Drag mouse to look · WASD / arrows to move · Orbit: wheel to zoom';
+</script>
+</body></html>
