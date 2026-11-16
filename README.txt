@@ -1,30 +1,23 @@
-VIRTUAL CINEMATOGRAPHER — V15 MOTION EXPORT FIX
+VIRTUAL CINEMATOGRAPHER — V16 MOTION BINDING FIX
 
-V15 is based on V14 and retains all previous features.
+Based on V15. All existing modules and features are retained.
 
-FIX
-The standalone Export complete scene (.glb) action now includes:
-- Imported character animation clips
-- Generated Motion Studio transform clips (Motion_<object name>)
-when the existing Include animations checkbox is enabled.
+V16 change:
+- Motion Studio animation tracks now bind to the target Three.js node by UUID rather than display name.
+- This avoids ambiguous/empty/duplicate node-name binding in imported GLB hierarchies.
+- GLB export status reports the generated Motion clip names and count.
 
-The V14 bug:
-- Complete project ZIP export collected Motion Studio tracks.
-- Standalone GLB export collected only imported animation clips.
-- Therefore Motion Studio movement did not appear as an additional clip in glTF Viewer.
+Test:
+1. Replace index.html and README.txt in the GitHub repository root.
+2. Commit, wait for GitHub Pages, then Ctrl+F5.
+3. Import StockClerk and select it in Environment Studio → Scene objects.
+4. Create at least two Motion Studio keyframes and verify playback.
+5. Export complete scene (.glb) with Include animations checked.
+6. Read the export status: it should report e.g. 8 animation clips (1 Motion: Motion_StockClerk).
+7. Open the new GLB in glTF Viewer → Animation and check for the extra Motion clip.
 
-TEST
-1. Install V15 by replacing index.html and README.txt in the GitHub repository root.
-2. Hard refresh with Ctrl+F5.
-3. Import the character and create at least two Motion Studio keyframes.
-4. In Export Studio, ensure Include animations is checked.
-5. Click Export complete scene (.glb).
-6. Open the new GLB in glTF Viewer → Animation.
-7. Look for Motion_<character/object name> in addition to the imported clips.
-8. The export status should report the total clip count and number of Motion clips.
-
-IMPORTANT
-- This fixes the missing Motion clip collection in the standalone GLB export.
-- It does not yet claim to fix the apparent forward/backward Z-direction difference. First verify that the Motion clip is present and plays. Then compare its trajectory; a separate coordinate/root-parent correction may be needed.
-- Static syntax and ZIP checks passed; browser testing remains to be performed by the user.
-- Keep .nojekyll. Do not upload this ZIP itself.
+Notes:
+- The UUID binding fix addresses track-to-node resolution; it is a targeted correction, not a guarantee until the user's new GLB is inspected.
+- Do not change the trajectory or coordinate signs yet. First verify that the extra Motion clip is present. Then compare direction.
+- Static JavaScript syntax and ZIP integrity are checked; browser behavior still needs user verification.
+- Keep .nojekyll; do not upload this ZIP itself.
