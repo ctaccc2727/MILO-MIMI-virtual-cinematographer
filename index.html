@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#10151d">
-<title>Virtual Cinematographer — V14 Motion Studio</title>
+<title>Virtual Cinematographer — V15 Motion Export Fix</title>
 <style>
 :root{--bg:#10151d;--panel:#171f2a;--panel2:#202b38;--line:#344253;--text:#e8eef5;--muted:#91a0b2;--accent:#66c7ff;--danger:#ff7777}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:14px/1.35 Inter,system-ui,Segoe UI,Arial,sans-serif;touch-action:none}
@@ -79,7 +79,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
 <body>
 <div id="app">
 <header>
- <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V14 MOTION STUDIO</small></div>
+ <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V15 MOTION EXPORT FIX</small></div>
  <select id="layoutMode" title="Interface layout"><option value="auto">Auto layout</option><option value="desktop">Desktop</option><option value="tablet">Tablet</option></select>
  <div id="modeSwitch">
   <button id="freeBtn" class="active">Free Camera</button>
@@ -323,7 +323,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
    <label class="control"><span>Include embedded character animations</span><input id="exportAnimations" type="checkbox" checked></label>
    <button id="exportGLB" class="full">Export complete scene (.glb)</button>
    <button id="exportManifest" class="full" style="margin-top:7px">Export project manifest (.json)</button>
-   <div class="small" id="exportStatus" style="margin-top:7px">GLB export includes the current stage contents. Camera sequence is saved separately.</div>
+   <div class="small" id="exportStatus" style="margin-top:7px">GLB export includes the current stage contents and, when enabled, imported clips plus V14 Motion Studio transform tracks. Camera sequence is saved separately.</div>
    <div class="panelTitle" style="margin-top:14px">Complete project · V14</div>
    <div class="small" style="margin-bottom:8px">Save a portable project archive containing the GLB scene, editable scene data, camera, lighting, shot sequence and custom character keyframes.</div>
    <button id="saveCompleteProject" class="full">Save complete project (.zip)</button>
@@ -436,7 +436,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
   </div>
  </aside>
 </div>
-<footer id="bottomBar"><span>V14 MOTION STUDIO · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
+<footer id="bottomBar"><span>V15 MOTION EXPORT FIX · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
 </div>
 <script type="importmap">
 {
@@ -647,11 +647,14 @@ document.getElementById('exportGLB').onclick=async()=>{
   const {GLTFExporter}=await import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/exporters/GLTFExporter.js');
   const exporter=new GLTFExporter();
   const includeAnimations=document.getElementById('exportAnimations').checked;
-  const clips=includeAnimations?sceneEditorObjects.flatMap(o=>o.userData.animationClips||[]):[];
+  const importedClips=includeAnimations?sceneEditorObjects.flatMap(o=>o.userData.animationClips||[]):[];
+  const generatedMotionClips=includeAnimations?motionTracks.map(motionClipForTrack).filter(Boolean):[];
+  const clips=[...importedClips,...generatedMotionClips];
   const result=await new Promise((resolve,reject)=>exporter.parse(stage,resolve,reject,{binary:true,onlyVisible:true,animations:clips}));
   if(!(result instanceof ArrayBuffer))throw new Error('Exporter did not return a binary GLB');
   downloadBlob(new Blob([result],{type:'model/gltf-binary'}),'virtual-cinematographer-scene.glb');
-  status.textContent='GLB exported · '+(result.byteLength/1048576).toFixed(2)+' MB';
+  status.textContent='GLB exported · '+(result.byteLength/1048576).toFixed(2)+' MB · '+clips.length+' animation clips ('+generatedMotionClips.length+' Motion)';
+  if(includeAnimations&&motionTracks.length&&!generatedMotionClips.length)status.textContent+=' · no valid Motion tracks found';
   toast('Scene GLB exported');
  }catch(err){
   console.error(err);status.textContent='Export failed · check browser console and model compatibility';toast('GLB export failed');
