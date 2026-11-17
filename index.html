@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#10151d">
-<title>Virtual Cinematographer — V24 Shadow Init Fix</title>
+<title>Virtual Cinematographer — V25 Materials Studio</title>
 <style>
 :root{--bg:#10151d;--panel:#171f2a;--panel2:#202b38;--line:#344253;--text:#e8eef5;--muted:#91a0b2;--accent:#66c7ff;--danger:#ff7777}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:14px/1.35 Inter,system-ui,Segoe UI,Arial,sans-serif;touch-action:none}
@@ -79,7 +79,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
 <body>
 <div id="app">
 <header>
- <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V24 SHADOW INIT FIX</small></div>
+ <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V25 MATERIALS STUDIO</small></div>
  <select id="layoutMode" title="Interface layout"><option value="auto">Auto layout</option><option value="desktop">Desktop</option><option value="tablet">Tablet</option></select>
  <div id="modeSwitch">
   <button id="freeBtn" class="active">Free Camera</button>
@@ -354,6 +354,22 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
     <button id="deleteObject">Delete</button>
    </div>
    <label class="control"><span>Object color</span><input id="objectColor" type="color" value="#8aa0b5" style="width:54px;height:30px;padding:2px"></label>
+   <div class="panelTitle" style="margin-top:12px">Material Editor</div>
+   <label class="control"><span>Surface preset</span></label>
+   <select id="materialPreset" class="full">
+    <option value="custom">Custom</option><option value="plastic">Plastic</option><option value="rubber">Rubber</option>
+    <option value="wood">Wood</option><option value="metal">Metal</option><option value="chrome">Chrome</option>
+    <option value="glass">Glass</option><option value="fabric">Fabric</option>
+   </select>
+   <label class="control"><span>Roughness <strong id="roughnessValue">0.55</strong></span><input id="materialRoughness" type="range" min="0" max="1" step="0.01" value="0.55"></label>
+   <label class="control"><span>Metalness <strong id="metalnessValue">0.00</strong></span><input id="materialMetalness" type="range" min="0" max="1" step="0.01" value="0"></label>
+   <label class="control"><span>Opacity <strong id="opacityValue">1.00</strong></span><input id="materialOpacity" type="range" min="0.1" max="1" step="0.01" value="1"></label>
+   <div class="stack" style="grid-template-columns:1fr 1fr;margin-top:8px">
+    <button id="saveMaterial">Save material</button><button id="exportMaterials">Export library</button>
+   </div>
+   <input id="materialLibraryFile" type="file" accept=".json,application/json" hidden>
+   <button id="importMaterials" class="full" style="margin-top:6px">Import material library</button>
+
    <div class="panelTitle" style="margin-top:12px">Position</div>
    <div class="transformGrid">
     <label>X<input id="objPosX" type="number" step="0.1" value="0"></label>
@@ -490,7 +506,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
   </div>
  </aside>
 </div>
-<footer id="bottomBar"><span>V24 SHADOW INIT FIX · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
+<footer id="bottomBar"><span>V25 MATERIALS STUDIO · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
 </div>
 <script type="importmap">
 {
@@ -1459,12 +1475,43 @@ function refreshObjectList(){
  else{sel.value='0';selectedSceneObject=sceneEditorObjects[0]}
  updateObjectEditor();
 }
+
+function objectMaterials(obj){
+ const out=[];if(!obj)return out;
+ obj.traverse(n=>{if(n.isMesh&&n.material){(Array.isArray(n.material)?n.material:[n.material]).forEach(m=>{if(m&&!out.includes(m))out.push(m)})}});
+ return out;
+}
+function readMaterialSettings(obj){
+ const m=objectMaterials(obj)[0];
+ return {roughness:m&&Number.isFinite(m.roughness)?m.roughness:.5,metalness:m&&Number.isFinite(m.metalness)?m.metalness:0,opacity:m&&Number.isFinite(m.opacity)?m.opacity:1};
+}
+function applyMaterialSettings(obj,s){
+ objectMaterials(obj).forEach(m=>{
+  if('roughness' in m)m.roughness=THREE.MathUtils.clamp(Number(s.roughness),0,1);
+  if('metalness' in m)m.metalness=THREE.MathUtils.clamp(Number(s.metalness),0,1);
+  m.opacity=THREE.MathUtils.clamp(Number(s.opacity),.1,1);m.transparent=m.opacity<.999;m.depthWrite=!m.transparent;m.needsUpdate=true;
+ });
+ updateMaterialReadout();
+}
+function updateMaterialReadout(){
+ const s=readMaterialSettings(selectedSceneObject);
+ [['materialRoughness','roughnessValue',s.roughness],['materialMetalness','metalnessValue',s.metalness],['materialOpacity','opacityValue',s.opacity]].forEach(([i,l,v])=>{
+  document.getElementById(i).value=String(v);document.getElementById(l).textContent=Number(v).toFixed(2);
+ });
+}
+const materialPresets={plastic:{roughness:.28,metalness:0,opacity:1},rubber:{roughness:.92,metalness:0,opacity:1},wood:{roughness:.72,metalness:0,opacity:1},metal:{roughness:.32,metalness:.88,opacity:1},chrome:{roughness:.08,metalness:1,opacity:1},glass:{roughness:.04,metalness:0,opacity:.32},fabric:{roughness:1,metalness:0,opacity:1}};
+let materialLibrary=[];
+function saveMaterialDownload(data,name){
+ const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 function updateObjectEditor(){
  const o=selectedSceneObject,ids=['objPosX','objPosY','objPosZ','objRotX','objRotY','objRotZ','objScale'];
  if(!o){ids.forEach(id=>document.getElementById(id).value='');return}
  const vals=[o.position.x,o.position.y,o.position.z,THREE.MathUtils.radToDeg(o.rotation.x),THREE.MathUtils.radToDeg(o.rotation.y),THREE.MathUtils.radToDeg(o.rotation.z),o.scale.x];
  ids.forEach((id,i)=>document.getElementById(id).value=Number(vals[i].toFixed(3)));
  document.getElementById('objectColor').value=objectMaterialColor(o);
+ updateMaterialReadout();
  const vis=document.getElementById('objectVisibility');vis.textContent=o.visible?'Visible':'Hidden';vis.classList.toggle('active',o.visible);
 }
 function addSceneObject(type,source=null){
@@ -1484,13 +1531,13 @@ function setObjectColor(hex){
 }
 function serializeScene(){
  return {format:'VirtualCinematographerScene',version:1,objects:sceneEditorObjects.filter(o=>o.userData.vcType!=='imported').map(o=>({
-  name:o.name,type:o.userData.vcType||'cube',position:o.position.toArray(),rotation:[o.rotation.x,o.rotation.y,o.rotation.z],scale:o.scale.toArray(),color:objectMaterialColor(o),visible:o.visible
+  name:o.name,type:o.userData.vcType||'cube',position:o.position.toArray(),rotation:[o.rotation.x,o.rotation.y,o.rotation.z],scale:o.scale.toArray(),color:objectMaterialColor(o),material:readMaterialSettings(o),visible:o.visible
  })),note:'Imported GLB/GLTF geometry is not embedded. Re-import those source files after loading this scene.'};
 }
 function makeObjectFromData(d){
  const o=addSceneObject(['cube','sphere','cylinder','plane'].includes(d.type)?d.type:'cube');
  if(!o)return;
- o.name=d.name||o.name;o.position.fromArray(d.position||[0,.9,0]);o.rotation.set(...(d.rotation||[0,0,0]));o.scale.fromArray(d.scale||[1,1,1]);o.visible=d.visible!==false;setObjectColor(d.color||'#8aa0b5');
+ o.name=d.name||o.name;o.position.fromArray(d.position||[0,.9,0]);o.rotation.set(...(d.rotation||[0,0,0]));o.scale.fromArray(d.scale||[1,1,1]);o.visible=d.visible!==false;setObjectColor(d.color||'#8aa0b5');if(d.material)applyMaterialSettings(o,d.material);
 }
 document.getElementById('objectSelect').onchange=e=>{const i=Number(e.target.value);selectedSceneObject=sceneEditorObjects[i]||null;updateObjectEditor()};
 document.getElementById('addCube').onclick=()=>addSceneObject('cube');
@@ -1510,6 +1557,29 @@ const transformInputs={objPosX:['position','x',1],objPosY:['position','y',1],obj
 Object.entries(transformInputs).forEach(([id,[prop,axis,factor]])=>document.getElementById(id).onchange=e=>{if(selectedSceneObject){selectedSceneObject[prop][axis]=Number(e.target.value)*factor;updateObjectEditor()}});
 document.getElementById('objScale').onchange=e=>{if(selectedSceneObject){const s=Math.max(.01,Number(e.target.value)||1);selectedSceneObject.scale.setScalar(s);updateObjectEditor()}};
 document.getElementById('objectColor').oninput=e=>setObjectColor(e.target.value);
+document.getElementById('materialPreset').addEventListener('change',e=>{
+ const p=materialPresets[e.target.value];if(p&&selectedSceneObject)applyMaterialSettings(selectedSceneObject,p);
+});
+[['materialRoughness','roughness'],['materialMetalness','metalness'],['materialOpacity','opacity']].forEach(([id,k])=>{
+ document.getElementById(id).addEventListener('input',e=>{
+  if(!selectedSceneObject)return;const s=readMaterialSettings(selectedSceneObject);s[k]=Number(e.target.value);applyMaterialSettings(selectedSceneObject,s);document.getElementById('materialPreset').value='custom';
+ });
+});
+document.getElementById('saveMaterial').addEventListener('click',()=>{
+ if(!selectedSceneObject){toast('Select a scene object first');return}
+ const name=prompt('Material name','Material '+(materialLibrary.length+1));if(!name)return;
+ materialLibrary.push({name,color:objectMaterialColor(selectedSceneObject),...readMaterialSettings(selectedSceneObject)});toast('Material saved to current library');
+});
+document.getElementById('exportMaterials').addEventListener('click',()=>saveMaterialDownload({format:'VirtualCinematographerMaterialLibrary',version:1,materials:materialLibrary},'vc-material-library.json'));
+document.getElementById('importMaterials').addEventListener('click',()=>document.getElementById('materialLibraryFile').click());
+document.getElementById('materialLibraryFile').addEventListener('change',async e=>{
+ const f=e.target.files?.[0];if(!f)return;
+ try{const d=JSON.parse(await f.text());if(d.format!=='VirtualCinematographerMaterialLibrary'||!Array.isArray(d.materials))throw new Error('Invalid material library');
+ materialLibrary=d.materials.filter(m=>m&&typeof m.name==='string').map(m=>({name:m.name,color:m.color||'#8aa0b5',roughness:Number(m.roughness)||0,metalness:Number(m.metalness)||0,opacity:Number(m.opacity)||1}));
+ toast('Material library imported · '+materialLibrary.length+' materials');
+ }catch(err){toast('Could not import material library: '+err.message)}e.target.value='';
+});
+
 document.getElementById('objectVisibility').onclick=()=>{if(selectedSceneObject){selectedSceneObject.visible=!selectedSceneObject.visible;updateObjectEditor()}};
 document.getElementById('resetTransform').onclick=()=>{if(selectedSceneObject){selectedSceneObject.position.set(0,.9,0);selectedSceneObject.rotation.set(0,0,0);selectedSceneObject.scale.setScalar(1);updateObjectEditor()}};
 document.getElementById('saveScene').onclick=()=>{

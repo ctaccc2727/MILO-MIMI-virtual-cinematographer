@@ -1,15 +1,23 @@
-VIRTUAL CINEMATOGRAPHER V24 — SHADOW INITIALIZATION FIX
+VIRTUAL CINEMATOGRAPHER V25 — MATERIALS STUDIO
 
-Based on V23. All previous features are retained.
+Based on V24. All previous features are retained.
 
-V24 fix:
-- Moved the initial renderApplyQuality() call until after renderShadowMapSize is initialized and the function declaration is evaluated.
-- V23 called renderApplyQuality() immediately after creating the key light, before the later let declaration of renderShadowMapSize. This caused a temporal-dead-zone ReferenceError and stopped scene initialization.
-- Soft and High both use PCFShadowMap. Soft = 1024²; High = 2048².
+Adds Material Editor for the selected scene object:
+- Roughness, metalness and opacity controls.
+- Surface presets: Plastic, Rubber, Wood, Metal, Chrome, Glass, Fabric.
+- Save named material entries in the current in-memory library.
+- Export/import material library JSON.
+- Scene JSON stores material roughness, metalness and opacity for editable primitives; older scene JSON remains supported.
+- GLB export uses edited live materials.
+
+Notes:
+- Presets adjust PBR surface properties, not image texture maps. Wood/Fabric are roughness presets only.
+- Material library remains in memory until exported.
+- Imported GLB: changes apply to all mesh materials under selected model root.
+- Glass preset uses opacity/transparency, not physically accurate refraction.
 
 Install:
-Replace index.html and README.txt in the GitHub Pages repository root, commit, wait for deployment, then Ctrl+F5.
-Do not upload check.mjs. Keep .nojekyll.
-External CDN access is required.
+Replace index.html and README.txt in GitHub Pages root, commit, then Ctrl+F5.
+Do not upload check.mjs. Keep .nojekyll. External CDN access required.
 
 Validation: ZIP integrity and JavaScript syntax checked. Not browser-tested on your device.
