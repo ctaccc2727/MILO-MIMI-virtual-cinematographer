@@ -1,28 +1,27 @@
-VIRTUAL CINEMATOGRAPHER V18 — RENDER STUDIO
+VIRTUAL CINEMATOGRAPHER V19 — RENDER QUALITY
 
-Based on V17. All previous studios and project save/load features are retained.
+Based on V18. All previous studios, project ZIP save/load, camera sequencing, and WebM recording remain included.
 
-V18 adds:
-- Record view: records the current 3D viewport.
-- Render sequence: records the Cinematic Sequencer automatically from start to finish.
-- Output resolution: current viewport, 1280×720 HD, or 1920×1080 Full HD.
-- Frame rate: 24, 30, or 60 fps.
-- WebM export using the browser MediaRecorder API.
-- Elapsed recording timer and status.
-- Automatic restoration of the original viewport dimensions after recording.
+V19 adds:
+- Render quality profiles: Compact, Balanced, High, Custom.
+- Selectable target video bitrate: 4, 8, 12, or 16 Mbps.
+- Compact: 720p / 24 fps / 4 Mbps.
+- Balanced: 720p / 30 fps / 8 Mbps.
+- High: 1080p / 30 fps / 12 Mbps.
+- Export preview summary before recording.
+- Render settings are remembered in the browser on that device.
 
-Important limitations:
-- This is real-time browser capture, not an offline/path-traced renderer.
-- Video is exported as WebM. No audio is recorded.
-- 4K, MP4/H.264 encoding, offline rendering, and render-quality/shadow presets are not included.
-- 1080p/60 fps may be too demanding on some devices; use 720p/24 or 30 fps if recording stutters.
-- Keep the browser tab active during recording. Performance depends on browser, GPU, scene complexity, and device.
-- If the browser does not support MediaRecorder or canvas capture, recording will be unavailable.
+Important:
+- Bitrate is a target requested from MediaRecorder; actual encoding may vary by browser.
+- This is real-time browser capture, not offline/path-traced rendering.
+- WebM only; no audio, MP4/H.264, 4K, offline rendering, or shadow-map quality controls.
+- High resolution/bitrate may be demanding. Use Compact or Balanced if recording stutters.
+- Keep the browser tab active while recording.
 
 Install:
 1. Extract this ZIP.
-2. Upload index.html and README.txt to the root of your GitHub Pages repository, replacing the previous files.
-3. Commit changes and wait for GitHub Pages to publish.
+2. Upload index.html and README.txt to the root of your GitHub Pages repository, replacing previous files.
+3. Commit changes and wait for GitHub Pages.
 4. Refresh with Ctrl+F5.
 
 Do not upload check.mjs. Keep .nojekyll in the repository.
