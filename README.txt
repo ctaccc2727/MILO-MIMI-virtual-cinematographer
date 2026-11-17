@@ -1,27 +1,19 @@
-VIRTUAL CINEMATOGRAPHER V27 — MATERIAL PRESET TEXTURES
+VIRTUAL CINEMATOGRAPHER V28 — MATERIAL TEXTURE RESET
 
-Based on V25. All prior features retained.
+Based on V27. All previous features are retained.
 
-V27 improves the visible distinction between presets:
-- Plastic: physical clearcoat highlights plus subtle surface map.
-- Rubber: dark fine-grain procedural surface map and high roughness.
-- Wood: procedural wood-grain color map.
-- Fabric: woven crosshatch procedural color map and sheen.
-- Presets are applied to all meshes under the selected object.
-- Selected preset name is stored in editable primitive Scene JSON and reapplied when loading.
-- Existing roughness, metalness, opacity sliders remain available.
-
-Notes:
-- Procedural maps are generated in the browser at runtime; no external texture downloads.
-- Wood/Fabric appearance depends on the model's UV coordinates. Meshes without usable UVs may show limited texture detail.
-- These are procedural stylized surface maps, not scanned photoreal materials.
-- GLB export includes the live material maps and properties.
+V28 fixes material preset switching:
+- Every preset explicitly replaces the current texture map, including clearing it for Metal, Chrome, and Glass.
+- Original object/material tint is preserved and restored when switching away from procedural texture presets.
+- Prevents Wood/Fabric/Rubber/Plastic texture maps from leaking into the next preset.
+- Existing roughness, metalness, opacity, clearcoat, sheen, Scene JSON, and GLB export behavior are retained.
 
 Install:
-Replace index.html and README.txt in GitHub Pages root, commit, then Ctrl+F5.
+1. Extract this ZIP.
+2. Replace index.html and README.txt in the GitHub Pages repository root.
+3. Commit changes and wait for Pages to update.
+4. Refresh the site with Ctrl+F5.
+
 Do not upload check.mjs. Keep .nojekyll.
 
-Validation: ZIP integrity and JavaScript syntax checked. Not browser-tested on your device.
-
-
-V27 FIX: Preset application now clones the original material type instead of copying it into MeshPhysicalMaterial. This prevents Vector2.copy errors on materials that do not expose physical-material properties. Clearcoat and sheen are applied only when supported by the cloned material.
+Validation: ZIP integrity and JavaScript syntax checked. Not browser-tested on the user's device.
