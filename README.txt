@@ -1,19 +1,23 @@
-VIRTUAL CINEMATOGRAPHER V28 — MATERIAL TEXTURE RESET
+VIRTUAL CINEMATOGRAPHER — FINAL CUMULATIVE PACKAGE V29
 
-Based on V27. All previous features are retained.
+This is the latest cumulative build, based on the previously working V28 project.
+It retains the existing project modules and adds the V29 studio reflection environment
+and neutral silver material tints for Metal and Chrome.
 
-V28 fixes material preset switching:
-- Every preset explicitly replaces the current texture map, including clearing it for Metal, Chrome, and Glass.
-- Original object/material tint is preserved and restored when switching away from procedural texture presets.
-- Prevents Wood/Fabric/Rubber/Plastic texture maps from leaking into the next preset.
-- Existing roughness, metalness, opacity, clearcoat, sheen, Scene JSON, and GLB export behavior are retained.
-
-Install:
+INSTALLATION
 1. Extract this ZIP.
-2. Replace index.html and README.txt in the GitHub Pages repository root.
-3. Commit changes and wait for Pages to update.
-4. Refresh the site with Ctrl+F5.
+2. In the GitHub repository root, replace only index.html and README.txt.
+3. Keep the existing .nojekyll file in the repository.
+4. Commit the changes and wait for GitHub Pages to publish.
+5. Open the site and press Ctrl+F5.
 
-Do not upload check.mjs. Keep .nojekyll.
+IMPORTANT
+- Upload index.html and README.txt only.
+- Do NOT upload check.mjs; it is a local validation helper.
+- Keep the previous ZIP as a backup until the new build is confirmed in the browser.
 
-Validation: ZIP integrity and JavaScript syntax checked. Not browser-tested on the user's device.
+VALIDATION
+- ZIP integrity checked.
+- Main JavaScript module syntax checked with Node.js.
+- Not browser-tested on the user's device. Visual behavior of Metal/Chrome reflections
+  must be confirmed in the live site.

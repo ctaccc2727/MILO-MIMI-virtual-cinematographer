@@ -79,7 +79,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
 <body>
 <div id="app">
 <header>
- <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V28 MATERIAL TEXTURE RESET</small></div>
+ <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V29 MATERIAL REALISM FIX</small></div>
  <select id="layoutMode" title="Interface layout"><option value="auto">Auto layout</option><option value="desktop">Desktop</option><option value="tablet">Tablet</option></select>
  <div id="modeSwitch">
   <button id="freeBtn" class="active">Free Camera</button>
@@ -506,7 +506,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
   </div>
  </aside>
 </div>
-<footer id="bottomBar"><span>V28 MATERIAL TEXTURE RESET · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
+<footer id="bottomBar"><span>V29 MATERIAL REALISM FIX · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
 </div>
 <script type="importmap">
 {
@@ -688,6 +688,30 @@ renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=1.05;
 let composer=null, bokehPass=null, dofAvailable=false;
 const scene=new THREE.Scene(); scene.background=new THREE.Color(0x182431);
+// V29: procedural studio reflection environment. Metallic materials need something bright to reflect;
+// direct lights alone illuminate them poorly without an environment map.
+function createStudioEnvironment(){
+ const faces=[];
+ for(let face=0;face<6;face++){
+  const c=document.createElement('canvas');c.width=512;c.height=512;
+  const x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,512);
+  g.addColorStop(0,face===2?'#dce5ef':'#697887');g.addColorStop(.42,'#3d4b59');g.addColorStop(1,'#111923');
+  x.fillStyle=g;x.fillRect(0,0,512,512);
+  // Large softboxes and vertical strip lights create recognizable chrome reflections.
+  const panels=face===2?[[90,65,330,105],[35,210,90,175],[365,205,90,180]]:[[55,85,105,245],[350,70,95,275],[180,20,150,55]];
+  for(const [px,py,pw,ph] of panels){
+   const glow=x.createRadialGradient(px+pw/2,py+ph/2,4,px+pw/2,py+ph/2,Math.max(pw,ph)*.8);
+   glow.addColorStop(0,'rgba(255,255,255,.95)');glow.addColorStop(.35,'rgba(226,237,248,.72)');glow.addColorStop(1,'rgba(190,210,230,0)');
+   x.fillStyle=glow;x.fillRect(px-pw,py-ph,pw*3,ph*3);
+   x.fillStyle='rgba(255,255,255,.92)';x.fillRect(px,py,pw,ph);
+  }
+  faces.push(c);
+ }
+ const env=new THREE.CubeTexture(faces);env.colorSpace=THREE.SRGBColorSpace;env.needsUpdate=true;return env;
+}
+scene.environment=createStudioEnvironment();
+scene.environmentIntensity=1.35;
 scene.fog=new THREE.Fog(0x182431,28,90);
 const sceneFog=scene.fog;
 const camera=new THREE.PerspectiveCamera(55,1,.1,300);
@@ -1538,7 +1562,15 @@ function applySurfacePreset(obj,name){
    m.roughness=materialPresets[name]?.roughness??m.roughness;
    m.metalness=materialPresets[name]?.metalness??m.metalness;
    m.map=tex;
-   if(m.color){if(tex)m.color.set('#ffffff');else if(m.userData.vcBaseColor!==undefined)m.color.setHex(m.userData.vcBaseColor);}
+   if(m.color){
+    if(tex)m.color.set('#ffffff');
+    else if(name==='metal')m.color.set('#c4cbd3');
+    else if(name==='chrome')m.color.set('#f2f5f8');
+    else if(m.userData.vcBaseColor!==undefined)m.color.setHex(m.userData.vcBaseColor);
+   }
+   if('envMapIntensity' in m){m.envMapIntensity=name==='chrome'?2.2:name==='metal'?1.55:1.0;}
+   if(name==='metal')m.roughness=.24;
+   if(name==='chrome')m.roughness=.055;
    m.needsUpdate=true;return m;
   });
   n.material=Array.isArray(n.material)?updated:updated[0];
