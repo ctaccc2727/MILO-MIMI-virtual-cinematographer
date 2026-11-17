@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#10151d">
-<title>Virtual Cinematographer — V26 Material Preset Textures</title>
+<title>Virtual Cinematographer — V27 Material Clone Fix</title>
 <style>
 :root{--bg:#10151d;--panel:#171f2a;--panel2:#202b38;--line:#344253;--text:#e8eef5;--muted:#91a0b2;--accent:#66c7ff;--danger:#ff7777}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:14px/1.35 Inter,system-ui,Segoe UI,Arial,sans-serif;touch-action:none}
@@ -79,7 +79,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
 <body>
 <div id="app">
 <header>
- <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V26 MATERIAL PRESET TEXTURES</small></div>
+ <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V27 MATERIAL CLONE FIX</small></div>
  <select id="layoutMode" title="Interface layout"><option value="auto">Auto layout</option><option value="desktop">Desktop</option><option value="tablet">Tablet</option></select>
  <div id="modeSwitch">
   <button id="freeBtn" class="active">Free Camera</button>
@@ -506,7 +506,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
   </div>
  </aside>
 </div>
-<footer id="bottomBar"><span>V26 MATERIAL PRESET TEXTURES · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
+<footer id="bottomBar"><span>V27 MATERIAL CLONE FIX · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
 </div>
 <script type="importmap">
 {
@@ -1530,9 +1530,9 @@ function applySurfacePreset(obj,name){
   if(!n.isMesh||!n.material)return;
   const source=Array.isArray(n.material)?n.material:[n.material];
   const updated=source.map(old=>{
-   const m=new THREE.MeshPhysicalMaterial();m.copy(old);
-   m.clearcoat=name==='plastic'?.65:0;m.clearcoatRoughness=name==='plastic'?.18:1;
-   m.sheen=name==='fabric'?.55:0;m.sheenRoughness=.95;
+   const m=old.clone();
+   if('clearcoat' in m){m.clearcoat=name==='plastic'?.65:0;m.clearcoatRoughness=name==='plastic'?.18:1;}
+   if('sheen' in m){m.sheen=name==='fabric'?.55:0;m.sheenRoughness=.95;}
    m.roughness=materialPresets[name]?.roughness??m.roughness;
    m.metalness=materialPresets[name]?.metalness??m.metalness;
    if(tex){m.map=tex;m.color.set(name==='wood'?'#ffffff':name==='fabric'?'#ffffff':name==='rubber'?'#ffffff':'#ffffff')}

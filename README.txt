@@ -1,8 +1,8 @@
-VIRTUAL CINEMATOGRAPHER V26 — MATERIAL PRESET TEXTURES
+VIRTUAL CINEMATOGRAPHER V27 — MATERIAL PRESET TEXTURES
 
 Based on V25. All prior features retained.
 
-V26 improves the visible distinction between presets:
+V27 improves the visible distinction between presets:
 - Plastic: physical clearcoat highlights plus subtle surface map.
 - Rubber: dark fine-grain procedural surface map and high roughness.
 - Wood: procedural wood-grain color map.
@@ -22,3 +22,6 @@ Replace index.html and README.txt in GitHub Pages root, commit, then Ctrl+F5.
 Do not upload check.mjs. Keep .nojekyll.
 
 Validation: ZIP integrity and JavaScript syntax checked. Not browser-tested on your device.
+
+
+V27 FIX: Preset application now clones the original material type instead of copying it into MeshPhysicalMaterial. This prevents Vector2.copy errors on materials that do not expose physical-material properties. Clearcoat and sheen are applied only when supported by the cloned material.
