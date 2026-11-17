@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#10151d">
-<title>Virtual Cinematographer — V17 Project Restore Fix</title>
+<title>Virtual Cinematographer — V18 Render Studio</title>
 <style>
 :root{--bg:#10151d;--panel:#171f2a;--panel2:#202b38;--line:#344253;--text:#e8eef5;--muted:#91a0b2;--accent:#66c7ff;--danger:#ff7777}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:14px/1.35 Inter,system-ui,Segoe UI,Arial,sans-serif;touch-action:none}
@@ -79,7 +79,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
 <body>
 <div id="app">
 <header>
- <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V17 PROJECT RESTORE FIX</small></div>
+ <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V18 RENDER STUDIO</small></div>
  <select id="layoutMode" title="Interface layout"><option value="auto">Auto layout</option><option value="desktop">Desktop</option><option value="tablet">Tablet</option></select>
  <div id="modeSwitch">
   <button id="freeBtn" class="active">Free Camera</button>
@@ -90,6 +90,31 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
 </header>
 <div id="workspace">
  <aside id="leftPanel">
+  <div class="group">
+   <div class="panelTitle">Render Studio · video export</div>
+   <div class="small" style="margin-bottom:8px">Record the live 3D viewport or automatically record the complete camera sequence. Export is WebM; no audio track is included.</div>
+   <label class="control"><span>Output resolution</span></label>
+   <select id="renderResolution" class="full">
+    <option value="viewport">Viewport · current size</option>
+    <option value="720">1280 × 720 · HD</option>
+    <option value="1080">1920 × 1080 · Full HD</option>
+   </select>
+   <label class="control" style="margin-top:8px"><span>Frame rate</span></label>
+   <select id="renderFPS" class="full">
+    <option value="24">24 fps · Cinema</option>
+    <option value="30" selected>30 fps</option>
+    <option value="60">60 fps · Smooth</option>
+   </select>
+   <div class="stack" style="grid-template-columns:1fr 1fr;margin-top:9px">
+    <button id="renderRecord">● Record view</button>
+    <button id="renderSequence">▶ Render sequence</button>
+   </div>
+   <button id="renderStop" class="full" style="margin-top:7px" disabled>■ Stop & save video</button>
+   <div class="control" style="margin-top:9px"><span>Render status</span><strong id="renderState">Ready</strong></div>
+   <div class="control"><span>Elapsed</span><strong id="renderElapsed">00:00</strong></div>
+   <div class="small" id="renderStatus" style="margin-top:6px">WebM recording · viewport capture · browser/GPU performance dependent.</div>
+  </div>
+
   <div class="panelTitle">Camera controls</div>
   <div class="group">
    <div class="control"><span>Mode</span><strong id="modeName">Free Camera</strong></div>
@@ -436,7 +461,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
   </div>
  </aside>
 </div>
-<footer id="bottomBar"><span>V17 PROJECT RESTORE FIX · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
+<footer id="bottomBar"><span>V18 RENDER STUDIO · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
 </div>
 <script type="importmap">
 {
@@ -451,6 +476,113 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.m
 const canvas=document.getElementById('view');
 const viewport=document.getElementById('viewport');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});
+
+// V18 Render Studio — browser-side canvas recording (WebM).
+let renderRecorder=null,renderStream=null,renderChunks=[],renderStartedAt=0;
+let renderSequenceRecording=false,renderOutputSize=null,renderOriginalPixelRatio=1;
+let renderLastUiSecond=-1;
+const renderMimeTypes=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+function renderSetStatus(state,message){
+ const stateEl=document.getElementById('renderState');
+ const msgEl=document.getElementById('renderStatus');
+ if(stateEl)stateEl.textContent=state;
+ if(msgEl)msgEl.textContent=message||'';
+}
+function renderElapsedText(ms){
+ const sec=Math.max(0,Math.floor(ms/1000));
+ return String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');
+}
+function renderSetOutputSize(){
+ const choice=document.getElementById('renderResolution').value;
+ const vw=Math.max(1,viewport.clientWidth),vh=Math.max(1,viewport.clientHeight);
+ if(choice==='720')return {w:1280,h:720};
+ if(choice==='1080')return {w:1920,h:1080};
+ return {w:vw,h:vh};
+}
+function renderRestoreViewport(){
+ renderOutputSize=null;
+ renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+ const w=Math.max(1,viewport.clientWidth),h=Math.max(1,viewport.clientHeight);
+ renderer.setSize(w,h,false);
+ if(composer)composer.setSize(w,h);
+ camera.aspect=w/h;camera.updateProjectionMatrix();
+}
+function renderFinish(save=true){
+ if(!renderRecorder)return;
+ const recorder=renderRecorder;
+ renderRecorder=null;
+ renderSequenceRecording=false;
+ try{if(recorder.state!=='inactive')recorder.stop()}catch(e){}
+ if(renderStream){renderStream.getTracks().forEach(t=>t.stop());renderStream=null}
+ renderRestoreViewport();
+ document.getElementById('renderStop').disabled=true;
+ document.getElementById('renderRecord').disabled=false;
+ document.getElementById('renderSequence').disabled=false;
+}
+function renderStart(sequence=false){
+ if(!canvas.captureStream||!window.MediaRecorder){
+  renderSetStatus('Unavailable','This browser does not support canvas recording with MediaRecorder.');
+  toast('Video recording is not supported in this browser');return;
+ }
+ if(renderRecorder){toast('A recording is already running');return}
+ if(sequence&&cinematicShots.length<1){toast('Capture at least one camera shot first');return}
+ const fps=Number(document.getElementById('renderFPS').value)||30;
+ const size=renderSetOutputSize();
+ renderOriginalPixelRatio=renderer.getPixelRatio();
+ renderOutputSize=size;
+ renderer.setPixelRatio(1);
+ renderer.setSize(size.w,size.h,false);
+ if(composer)composer.setSize(size.w,size.h);
+ camera.aspect=size.w/size.h;camera.updateProjectionMatrix();
+ try{
+  renderStream=canvas.captureStream(fps);
+  const mime=renderMimeTypes.find(t=>MediaRecorder.isTypeSupported(t))||'';
+  renderRecorder=new MediaRecorder(renderStream,mime?{mimeType:mime,videoBitsPerSecond:size.w>=1920?12000000:6000000}:{videoBitsPerSecond:6000000});
+  renderChunks=[];
+  renderSequenceRecording=sequence;
+  renderStartedAt=performance.now();
+  renderLastUiSecond=-1;
+  renderRecorder.ondataavailable=e=>{if(e.data&&e.data.size)renderChunks.push(e.data)};
+  renderRecorder.onerror=e=>{
+   renderSetStatus('Error',e.error?.message||'Recording failed.');
+   renderFinish(false);
+  };
+  renderRecorder.onstop=()=>{
+   const type=renderRecorder?.mimeType||'video/webm';
+   if(renderChunks.length){
+    const blob=new Blob(renderChunks,{type});
+    const url=URL.createObjectURL(blob),a=document.createElement('a');
+    const stamp=new Date().toISOString().replace(/[:.]/g,'-');
+    a.href=url;a.download=(sequence?'cinematic-sequence-':'virtual-cinematographer-')+stamp+'.webm';
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+    renderSetStatus('Saved',`WebM saved · ${size.w}×${size.h} · ${fps} fps · ${(blob.size/1048576).toFixed(1)} MB`);
+    toast('Video exported');
+   }else renderSetStatus('No data','The browser did not return video data.');
+   renderChunks=[];
+  };
+  renderRecorder.start(1000);
+  document.getElementById('renderStop').disabled=false;
+  document.getElementById('renderRecord').disabled=true;
+  document.getElementById('renderSequence').disabled=true;
+  renderSetStatus('Recording',`${sequence?'Recording camera sequence':'Recording current view'} · ${size.w}×${size.h} · ${fps} fps`);
+  if(sequence){
+   sequencePlaying=true;sequenceTime=0;applySequenceTime(0);setMode('cinematic');
+  }
+  toast(sequence?'Sequence recording started':'Viewport recording started');
+ }catch(err){
+  renderSetStatus('Error',err.message||'Could not start recording.');
+  renderFinish(false);
+  toast('Could not start video recording');
+ }
+}
+document.getElementById('renderRecord').addEventListener('click',()=>renderStart(false));
+document.getElementById('renderSequence').addEventListener('click',()=>renderStart(true));
+document.getElementById('renderStop').addEventListener('click',()=>{
+ if(renderSequenceRecording)sequencePlaying=false;
+ renderFinish(true);
+});
+
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
@@ -1049,10 +1181,20 @@ refreshSequenceUI();
 function loop(now){
  requestAnimationFrame(loop);
  const dt=Math.min((now-lastTime)/1000,.05);lastTime=now;
+ if(renderRecorder&&renderRecorder.state==='recording'){
+  const elapsed=Math.floor((now-renderStartedAt)/1000);
+  if(elapsed!==renderLastUiSecond){
+   renderLastUiSecond=elapsed;
+   document.getElementById('renderElapsed').textContent=renderElapsedText(now-renderStartedAt);
+  }
+ }
  updateCamera(dt);
  if(sequencePlaying){
   sequenceTime+=dt;
-  if(sequenceTime>=sequenceDuration){sequenceTime=sequenceDuration;sequencePlaying=false}
+  if(sequenceTime>=sequenceDuration){
+   sequenceTime=sequenceDuration;sequencePlaying=false;
+   if(renderSequenceRecording&&renderRecorder)renderFinish(true);
+  }
   applySequenceTime(sequenceTime);
  }
  sceneEditorObjects.forEach(o=>{if(o.userData.animationMixer && !(o===selectedAnimCharacter && customTimelineActive))o.userData.animationMixer.update(dt)});
