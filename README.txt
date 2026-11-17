@@ -1,31 +1,23 @@
-VIRTUAL CINEMATOGRAPHER V19 — RENDER QUALITY
+VIRTUAL CINEMATOGRAPHER V20 — CINEMATIC RENDER ENGINE
 
-Based on V18. All previous studios, project ZIP save/load, camera sequencing, and WebM recording remain included.
+Based on V19. All previous features are retained.
 
-V19 adds:
-- Render quality profiles: Compact, Balanced, High, Custom.
-- Selectable target video bitrate: 4, 8, 12, or 16 Mbps.
-- Compact: 720p / 24 fps / 4 Mbps.
-- Balanced: 720p / 30 fps / 8 Mbps.
-- High: 1080p / 30 fps / 12 Mbps.
-- Export preview summary before recording.
-- Render settings are remembered in the browser on that device.
+V20 adds:
+- Real-time directional-light shadows: Off, Soft (1024²), High (2048²).
+- Shadow casting and receiving for scene meshes when rendering starts or controls change.
+- Color processing: ACES Filmic, Neutral, Linear.
+- Texture anisotropic filtering up to the device/GPU-supported maximum.
+- Existing WebGL antialiasing remains enabled.
 
-Important:
-- Bitrate is a target requested from MediaRecorder; actual encoding may vary by browser.
-- This is real-time browser capture, not offline/path-traced rendering.
-- WebM only; no audio, MP4/H.264, 4K, offline rendering, or shadow-map quality controls.
-- High resolution/bitrate may be demanding. Use Compact or Balanced if recording stutters.
-- Keep the browser tab active while recording.
+Limitations:
+- Real-time WebGL rendering, not offline/path-traced rendering.
+- Shadow maps use the main directional/key light only.
+- High shadow resolution can reduce performance, especially on tablets.
+- Check the image after changing tone mapping; it changes the overall look.
+- No ray tracing, denoising, offline rendering, or multi-bounce global illumination.
 
-Install:
-1. Extract this ZIP.
-2. Upload index.html and README.txt to the root of your GitHub Pages repository, replacing previous files.
-3. Commit changes and wait for GitHub Pages.
-4. Refresh with Ctrl+F5.
+Install by replacing index.html and README.txt in the GitHub Pages repository, commit, then refresh with Ctrl+F5.
+Do not upload check.mjs. Keep .nojekyll.
+External CDN access is required.
 
-Do not upload check.mjs. Keep .nojekyll in the repository.
-External CDN access is required for Three.js modules.
-
-Validation:
-ZIP integrity and JavaScript syntax are checked. This build has not been browser-tested on your device.
+Validation: ZIP integrity and JavaScript syntax checked. Not browser-tested on your device.
