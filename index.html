@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#10151d">
-<title>Virtual Cinematographer — V23 Shadow Quality Fix</title>
+<title>Virtual Cinematographer — V24 Shadow Init Fix</title>
 <style>
 :root{--bg:#10151d;--panel:#171f2a;--panel2:#202b38;--line:#344253;--text:#e8eef5;--muted:#91a0b2;--accent:#66c7ff;--danger:#ff7777}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:14px/1.35 Inter,system-ui,Segoe UI,Arial,sans-serif;touch-action:none}
@@ -79,7 +79,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
 <body>
 <div id="app">
 <header>
- <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V23 SHADOW QUALITY FIX</small></div>
+ <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V24 SHADOW INIT FIX</small></div>
  <select id="layoutMode" title="Interface layout"><option value="auto">Auto layout</option><option value="desktop">Desktop</option><option value="tablet">Tablet</option></select>
  <div id="modeSwitch">
   <button id="freeBtn" class="active">Free Camera</button>
@@ -490,7 +490,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
   </div>
  </aside>
 </div>
-<footer id="bottomBar"><span>V23 SHADOW QUALITY FIX · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
+<footer id="bottomBar"><span>V24 SHADOW INIT FIX · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
 </div>
 <script type="importmap">
 {
@@ -746,7 +746,6 @@ const hemi=new THREE.HemisphereLight(0xbfdcff,0x27313c,1.45);scene.add(hemi);
 const key=new THREE.DirectionalLight(0xffe2bd,2.4);key.position.set(-6,10,5);key.castShadow=true;
 key.shadow.camera.left=-18;key.shadow.camera.right=18;key.shadow.camera.top=18;key.shadow.camera.bottom=-18;
 key.shadow.camera.near=.5;key.shadow.camera.far=70;key.shadow.bias=-0.00015;key.shadow.normalBias=.025;scene.add(key);
-renderApplyQuality();
 const fill=new THREE.DirectionalLight(0x7bbcff,.8);fill.position.set(7,5,-6);scene.add(fill);
 const rim=new THREE.PointLight(0x8ecbff,1.2,28,2);rim.position.set(0,5,-6);scene.add(rim);
 
@@ -782,6 +781,7 @@ function renderApplyQuality(){
  const status=document.getElementById('renderStatus');
  if(status&&!renderRecorder)status.textContent=`${label} · ${tone.toUpperCase()} color · texture filtering up to ${renderMaxAnisotropy}×`;
 }
+renderApplyQuality();
 
 function kelvinToColor(k){
  let t=k/100, r,g,b;

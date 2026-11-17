@@ -1,22 +1,15 @@
-VIRTUAL CINEMATOGRAPHER V23 — SHADOW QUALITY FIX
+VIRTUAL CINEMATOGRAPHER V24 — SHADOW INITIALIZATION FIX
 
-Based on V22. All previous studios and features are retained.
+Based on V23. All previous features are retained.
 
-V23 fixes High shadow mode:
-- Both Soft and High use the stable PCFShadowMap filter.
-- Soft uses a 1024×1024 shadow map.
-- High uses a 2048×2048 shadow map.
-- When switching map resolution, the old GPU shadow render target is disposed and recreated at the new size.
-- This avoids switching to PCFSoftShadowMap, which caused shadows to disappear on some GPU/browser combinations.
+V24 fix:
+- Moved the initial renderApplyQuality() call until after renderShadowMapSize is initialized and the function declaration is evaluated.
+- V23 called renderApplyQuality() immediately after creating the key light, before the later let declaration of renderShadowMapSize. This caused a temporal-dead-zone ReferenceError and stopped scene initialization.
+- Soft and High both use PCFShadowMap. Soft = 1024²; High = 2048².
 
 Install:
-1. Extract this ZIP.
-2. Replace index.html and README.txt in the GitHub Pages repository root.
-3. Commit changes and wait for deployment.
-4. Refresh with Ctrl+F5.
-
+Replace index.html and README.txt in the GitHub Pages repository root, commit, wait for deployment, then Ctrl+F5.
 Do not upload check.mjs. Keep .nojekyll.
 External CDN access is required.
 
-Validation:
-ZIP integrity and JavaScript syntax checked. Not browser-tested on your device.
+Validation: ZIP integrity and JavaScript syntax checked. Not browser-tested on your device.
