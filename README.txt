@@ -1,23 +1,24 @@
-VIRTUAL CINEMATOGRAPHER V25 — MATERIALS STUDIO
+VIRTUAL CINEMATOGRAPHER V26 — MATERIAL PRESET TEXTURES
 
-Based on V24. All previous features are retained.
+Based on V25. All prior features retained.
 
-Adds Material Editor for the selected scene object:
-- Roughness, metalness and opacity controls.
-- Surface presets: Plastic, Rubber, Wood, Metal, Chrome, Glass, Fabric.
-- Save named material entries in the current in-memory library.
-- Export/import material library JSON.
-- Scene JSON stores material roughness, metalness and opacity for editable primitives; older scene JSON remains supported.
-- GLB export uses edited live materials.
+V26 improves the visible distinction between presets:
+- Plastic: physical clearcoat highlights plus subtle surface map.
+- Rubber: dark fine-grain procedural surface map and high roughness.
+- Wood: procedural wood-grain color map.
+- Fabric: woven crosshatch procedural color map and sheen.
+- Presets are applied to all meshes under the selected object.
+- Selected preset name is stored in editable primitive Scene JSON and reapplied when loading.
+- Existing roughness, metalness, opacity sliders remain available.
 
 Notes:
-- Presets adjust PBR surface properties, not image texture maps. Wood/Fabric are roughness presets only.
-- Material library remains in memory until exported.
-- Imported GLB: changes apply to all mesh materials under selected model root.
-- Glass preset uses opacity/transparency, not physically accurate refraction.
+- Procedural maps are generated in the browser at runtime; no external texture downloads.
+- Wood/Fabric appearance depends on the model's UV coordinates. Meshes without usable UVs may show limited texture detail.
+- These are procedural stylized surface maps, not scanned photoreal materials.
+- GLB export includes the live material maps and properties.
 
 Install:
 Replace index.html and README.txt in GitHub Pages root, commit, then Ctrl+F5.
-Do not upload check.mjs. Keep .nojekyll. External CDN access required.
+Do not upload check.mjs. Keep .nojekyll.
 
 Validation: ZIP integrity and JavaScript syntax checked. Not browser-tested on your device.
