@@ -1,23 +1,27 @@
-VIRTUAL CINEMATOGRAPHER V20 — CINEMATIC RENDER ENGINE
+VIRTUAL CINEMATOGRAPHER V21 — SCENE RESTORE FIX
 
-Based on V19. All previous features are retained.
+Based on V20. Retains all prior features:
+- Environment Studio and imported 3D models
+- Character Animation Studio and Custom Timeline
+- Motion Studio and Root Motion
+- Cinematic Sequencer
+- Complete Project ZIP save/load
+- Render Studio WebM recording and quality profiles
+- V20 real-time shadows and color processing
 
-V20 adds:
-- Real-time directional-light shadows: Off, Soft (1024²), High (2048²).
-- Shadow casting and receiving for scene meshes when rendering starts or controls change.
-- Color processing: ACES Filmic, Neutral, Linear.
-- Texture anisotropic filtering up to the device/GPU-supported maximum.
-- Existing WebGL antialiasing remains enabled.
+V21 fix:
+- Corrected initialization order for the V20 render quality engine.
+- Initial shadow/color settings are now applied only after the scene and key light exist.
+- Prevents an early JavaScript reference error from stopping 3D scene initialization.
 
-Limitations:
-- Real-time WebGL rendering, not offline/path-traced rendering.
-- Shadow maps use the main directional/key light only.
-- High shadow resolution can reduce performance, especially on tablets.
-- Check the image after changing tone mapping; it changes the overall look.
-- No ray tracing, denoising, offline rendering, or multi-bounce global illumination.
+Install:
+1. Extract this ZIP.
+2. Replace index.html and README.txt in the root of your GitHub Pages repository.
+3. Commit changes and wait for deployment.
+4. Refresh with Ctrl+F5.
 
-Install by replacing index.html and README.txt in the GitHub Pages repository, commit, then refresh with Ctrl+F5.
 Do not upload check.mjs. Keep .nojekyll.
 External CDN access is required.
 
-Validation: ZIP integrity and JavaScript syntax checked. Not browser-tested on your device.
+Validation:
+ZIP integrity and JavaScript syntax checked. This build has not been browser-tested on your device.
