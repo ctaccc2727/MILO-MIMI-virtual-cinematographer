@@ -783,15 +783,22 @@ function v13CameraData(){
  };
 }
 function v13CustomAnimationData(){
- if(!selectedAnimCharacter)return null;
- return {
+ // Preserve custom keyframes even if the character selector lost focus.
+ const previous=selectedAnimCharacter;
+ const character=selectedAnimCharacter||animatedCharacters()[0]||null;
+ if(character)selectedAnimCharacter=character;
+ const frames=Array.isArray(customKeyframes)?customKeyframes:[];
+ if(!frames.length){selectedAnimCharacter=previous;return null}
+ const data={
   format:'VirtualCinematographerAnimation',version:10,
-  characterName:selectedAnimCharacter.name,
+  characterName:character?.name||'',
   duration:customDuration,
   fps:Number(document.getElementById('customFPS').value)||24,
-  boneNames:customBones().map((b,index)=>({index,name:b.name||''})),
-  keyframes:customKeyframes.map(k=>({time:k.time,pose:k.pose,root:k.root||null,easing:k.easing||'easeInOut'}))
+  boneNames:character?customBones().map((b,index)=>({index,name:b.name||''})):[],
+  keyframes:frames.map(k=>({time:k.time,pose:k.pose,root:k.root||null,easing:k.easing||'easeInOut'}))
  };
+ selectedAnimCharacter=previous;
+ return data;
 }
 function v13ProjectManifest(){
  return {
@@ -897,13 +904,30 @@ document.getElementById('completeProjectFile').addEventListener('change',async e
   updateOptics();updateLightingUI();setMode(['free','cinematic','orbit'].includes(c.mode)?c.mode:'free');
 
   cinematicShots=Array.isArray(manifest.cameraSequence)?manifest.cameraSequence:[];
-  motionTracks=Array.isArray(manifest.motionTracks)?manifest.motionTracks:[];motionKeyId=motionTracks.flatMap(t=>t.keyframes||[]).reduce((m,k)=>Math.max(m,Number(k.id)||0),0);motionTime=0;motionPlaying=false;motionRefresh();
+  motionTracks=Array.isArray(manifest.motionTracks)?manifest.motionTracks:[];motionKeyId=motionTracks.flatMap(t=>t.keyframes||[]).reduce((m,k)=>Math.max(m,Number(k.id)||0),0);motionTime=0;motionPlaying=false;
+  // Re-select the object that owns the first saved Motion track. The editor's
+  // default first-object selection may otherwise show zero keys and block Play.
+  const firstMotionTrack=motionTracks.find(t=>Array.isArray(t.keyframes)&&t.keyframes.length);
+  if(firstMotionTrack){
+   const motionOwner=sceneEditorObjects.find(o=>o.name===firstMotionTrack.targetName);
+   if(motionOwner){
+    selectedSceneObject=motionOwner;
+    const objectIndex=sceneEditorObjects.indexOf(motionOwner);
+    document.getElementById('objectSelect').value=String(objectIndex);
+    updateObjectEditor();
+    const maxMotionTime=Math.max(1,...motionTracks.filter(t=>t.targetName===motionOwner.name).flatMap(t=>(t.keyframes||[]).map(k=>Number(k.time)||0)));
+    document.getElementById('motionDuration').value=String(Math.min(30,maxMotionTime));
+    document.getElementById('motionDurationLabel').textContent=Number(document.getElementById('motionDuration').value).toFixed(1);
+    document.getElementById('motionTimeline').max=document.getElementById('motionDuration').value;
+   }
+  }
+  motionRefresh();
   selectedShotIndex=-1;sequencePlaying=false;sequenceTime=0;refreshSequenceUI();
 
   // Restore custom pose timeline against the imported character skeleton, if present.
   const animData=manifest.customAnimation;
   if(animData){
-   const candidate=sceneEditorObjects.find(o=>o.userData.vcType==='imported'&&o.name===animData.characterName)
+   const candidate=sceneEditorObjects.find(o=>o.userData.vcType==='imported'&&animData.characterName&&o.name===animData.characterName)
       ||sceneEditorObjects.find(o=>o.userData.animationMixer);
    if(candidate){
     selectedAnimCharacter=candidate;refreshAnimationCharacters();
@@ -921,7 +945,9 @@ document.getElementById('completeProjectFile').addEventListener('change',async e
     }else{customKeyframes=[];selectedKeyframeId=null;renderKeyframeList();status.textContent='Scene restored; custom animation skeleton did not match and was not applied.'}
    }else{customKeyframes=[];selectedKeyframeId=null;renderKeyframeList();status.textContent='Scene restored; no matching rigged character was found for custom keyframes.'}
   }else{customKeyframes=[];selectedKeyframeId=null;renderKeyframeList()}
-  status.textContent='Project restored · stage, camera, lighting and sequence loaded';
+  const restoredMotionKeys=motionTracks.reduce((n,t)=>n+(Array.isArray(t.keyframes)?t.keyframes.length:0),0);
+  const restoredCustomKeys=customKeyframes.length;
+  status.textContent='Project restored · '+restoredMotionKeys+' Motion keys · '+restoredCustomKeys+' Custom keys · stage, camera, lighting and sequence loaded';
   toast('Complete project loaded');
  }catch(err){
   console.error(err);status.textContent='Project load failed · '+(err.message||'invalid archive');toast('Complete project load failed');

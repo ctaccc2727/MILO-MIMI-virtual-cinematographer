@@ -1,23 +1,22 @@
-VIRTUAL CINEMATOGRAPHER — V16 MOTION BINDING FIX
+VIRTUAL CINEMATOGRAPHER V17 — PROJECT RESTORE FIX
 
-Based on V15. All existing modules and features are retained.
+Based on V16. Retains the previous studios and features.
 
-V16 change:
-- Motion Studio animation tracks now bind to the target Three.js node by UUID rather than display name.
-- This avoids ambiguous/empty/duplicate node-name binding in imported GLB hierarchies.
-- GLB export status reports the generated Motion clip names and count.
+V17 fixes:
+- Complete Project ZIP now preserves Custom Timeline keyframes even if the character selector is not actively focused, provided custom keyframes exist.
+- On project load, Motion Studio automatically selects the saved Motion target object.
+- Motion duration/timeline range is restored from the saved target's keyframe times.
+- Load status reports the restored Motion and Custom keyframe counts.
+- Character matching handles empty saved character names by falling back to the available rigged character.
 
-Test:
-1. Replace index.html and README.txt in the GitHub repository root.
-2. Commit, wait for GitHub Pages, then Ctrl+F5.
-3. Import StockClerk and select it in Environment Studio → Scene objects.
-4. Create at least two Motion Studio keyframes and verify playback.
-5. Export complete scene (.glb) with Include animations checked.
-6. Read the export status: it should report e.g. 8 animation clips (1 Motion: Motion_StockClerk).
-7. Open the new GLB in glTF Viewer → Animation and check for the extra Motion clip.
+Install:
+1. Extract this ZIP.
+2. Upload index.html and README.txt to the root of your GitHub Pages repository, replacing the previous files.
+3. Commit changes and wait for GitHub Pages to publish.
+4. Refresh the site with Ctrl+F5.
 
-Notes:
-- The UUID binding fix addresses track-to-node resolution; it is a targeted correction, not a guarantee until the user's new GLB is inspected.
-- Do not change the trajectory or coordinate signs yet. First verify that the extra Motion clip is present. Then compare direction.
-- Static JavaScript syntax and ZIP integrity are checked; browser behavior still needs user verification.
-- Keep .nojekyll; do not upload this ZIP itself.
+Do not upload check.mjs. Keep .nojekyll in the repository.
+External CDN access is required for Three.js and JSZip modules.
+
+Validation note:
+This package was checked for JavaScript syntax and ZIP integrity. It has not been browser-tested on your device.
