@@ -79,7 +79,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
 <body>
 <div id="app">
 <header>
- <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V29 MATERIAL REALISM FIX</small></div>
+ <div class="brand">VIRTUAL <span>CINEMATOGRAPHER</span> <small style="color:#718196;font-weight:500">V30 AI SCENE BUILDER</small></div>
  <select id="layoutMode" title="Interface layout"><option value="auto">Auto layout</option><option value="desktop">Desktop</option><option value="tablet">Tablet</option></select>
  <div id="modeSwitch">
   <button id="freeBtn" class="active">Free Camera</button>
@@ -90,6 +90,23 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
 </header>
 <div id="workspace">
  <aside id="leftPanel">
+  <div class="group" id="aiSceneBuilder">
+   <div class="panelTitle">AI Scene Builder · prompt to shot plan</div>
+   <div class="small" style="margin-bottom:8px">Paste the complete director prompt. The builder extracts shot headings, durations and camera intent, then creates a camera sequence around the imported set.</div>
+   <textarea id="scenePrompt" class="full" rows="9" placeholder="Paste your complete MILO & MIMI prompt here…" style="width:100%;resize:vertical;background:#0e1620;color:#e8eef5;border:1px solid #344253;border-radius:8px;padding:9px;font:12px/1.4 inherit"></textarea>
+   <div class="small" style="margin:7px 0">Reference images stay on your device; upload them separately to Seedance/Kling. This module builds spatial camera blocking, not rigged character meshes.</div>
+   <label class="control"><span>Character / kitchen references</span></label>
+   <input id="sceneRefs" type="file" accept="image/*,.glb,.gltf" multiple class="full" style="font-size:11px">
+   <div id="sceneRefStatus" class="small" style="margin-top:5px">No reference files selected.</div>
+   <button id="buildScenePlan" class="full" style="margin-top:9px;background:#17415a;border-color:#3489b8">Build scene & camera sequence</button>
+   <div class="stack" style="grid-template-columns:1fr 1fr;margin-top:7px">
+    <button id="scenePreviewShots">Preview first shot</button>
+    <button id="sceneExportPlan">Export scene plan</button>
+   </div>
+   <div class="control" style="margin-top:9px"><span>Detected shots</span><strong id="sceneShotCount">0</strong></div>
+   <div id="sceneShotSummary" class="small" style="max-height:170px;overflow:auto;white-space:pre-wrap">Paste a prompt containing SHOT headings to begin.</div>
+   <div id="sceneBuilderStatus" class="small" style="margin-top:8px;color:#9bcff0">Ready · waiting for director prompt.</div>
+  </div>
   <div class="group">
    <div class="panelTitle">Render Studio · video export</div>
    <div class="small" style="margin-bottom:8px">Record the live 3D viewport or automatically record the complete camera sequence. Export is WebM; no audio track is included.</div>
@@ -506,7 +523,7 @@ body.force-desktop #workspace{grid-template-columns:250px minmax(0,1fr) 230px}bo
   </div>
  </aside>
 </div>
-<footer id="bottomBar"><span>V29 MATERIAL REALISM FIX · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
+<footer id="bottomBar"><span>V30 AI SCENE BUILDER · Correct aperture scale · Rack focus calibrated</span><span id="deviceLabel">Adaptive interface</span></footer>
 </div>
 <script type="importmap">
 {
@@ -1278,6 +1295,63 @@ function applyCameraShot(s){
 function addCameraShot(){
  cinematicShots.push(captureCameraShot());selectedShotIndex=cinematicShots.length-1;refreshSequenceUI();toast('Camera shot captured');
 }
+// V30 AI Scene Builder: deterministic prompt parser + automatic spatial camera blocking.
+let aiScenePlan=null,aiSceneRefs=[];
+document.getElementById('sceneRefs').addEventListener('change',e=>{
+ aiSceneRefs=[...(e.target.files||[])].map(f=>({name:f.name,type:f.type,size:f.size}));
+ document.getElementById('sceneRefStatus').textContent=aiSceneRefs.length?aiSceneRefs.map(x=>x.name).join(' · '):'No reference files selected.';
+});
+function aiSceneBounds(){
+ const box=new THREE.Box3();let found=false;
+ for(const o of sceneEditorObjects){if(!o||!o.visible)continue;const b=new THREE.Box3().setFromObject(o);if(!b.isEmpty()){box.union(b);found=true}}
+ if(!found){box.set(new THREE.Vector3(-3,0,-3),new THREE.Vector3(3,3,3))}
+ return {box,center:box.getCenter(new THREE.Vector3()),size:box.getSize(new THREE.Vector3())};
+}
+function aiParseShots(prompt){
+ const lines=prompt.split(/\r?\n/),heads=[];
+ for(let i=0;i<lines.length;i++){
+  const m=lines[i].match(/^\s*SHOT\s*(\d+)\s*[·:-]\s*(.*)$/i);
+  if(m){let time='';const tm=lines[i].match(/(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})/);if(tm)time=tm[0];heads.push({number:Number(m[1]),title:m[2].replace(/\s*\d{1,2}:\d{2}\s*[–-]\s*\d{1,2}:\d{2}.*/, '').trim()||('Shot '+m[1]),time,start:i})}
+ }
+ return heads.map((h,i)=>{const end=i+1<heads.length?heads[i+1].start:lines.length;const body=lines.slice(h.start+1,end).join('\n');let duration=3;const range=h.time.match(/(\d{1,2}):(\d{2})\s*[–-]\s*(\d{1,2}):(\d{2})/);if(range){const a=Number(range[1])*60+Number(range[2]),b=Number(range[3])*60+Number(range[4]);duration=Math.max(.5,b-a)}else{const d=body.match(/DURATION\s*[:=]\s*(\d+(?:\.\d+)?)/i);if(d)duration=Number(d[1])}
+  const text=(h.title+' '+body).toLowerCase();let kind='wide';if(/extreme|very tight|close-up|close up|macro/.test(text))kind='close';else if(/two-shot|two shot|profile|side view|medium shot/.test(text))kind='two';else if(/low|floor level|floor-level/.test(text))kind='low';
+  const transition=/hard cut|cut to/.test(body.toLowerCase())?'cut':'smooth';return {...h,body,duration,kind,transition};});
+}
+function aiLookShot(position,target){const p=new THREE.Vector3(...position),t=new THREE.Vector3(...target);camera.position.copy(p);camera.up.set(0,1,0);camera.lookAt(t);camera.updateMatrixWorld(true);yaw=camera.rotation.y;pitch=camera.rotation.x;}
+function aiBuildCameraShots(shots,bounds){
+ const c=bounds.center,s=bounds.size,depth=Math.max(s.z,5),width=Math.max(s.x,5),height=Math.max(s.y,2.8);
+ const frontZ=bounds.box.max.z+Math.max(5,depth*.95),frontX=c.x;
+ const targets=shots.map((sh,i)=>{
+  if(sh.kind==='close' && /milo|eye|his face|face/.test((sh.title+' '+sh.body).toLowerCase()))return [c.x-.55,Math.max(.65,c.y*.45),c.z+depth*.12];
+  if(sh.kind==='close')return [c.x+.65,Math.max(.85,c.y*.55),c.z+depth*.1];
+  if(sh.kind==='two')return [c.x,c.y*.42,c.z];
+  if(sh.kind==='low')return [c.x,c.y*.35,c.z];
+  return [c.x,c.y*.42,c.z];
+ });
+ return shots.map((sh,i)=>{
+  let pos;
+  if(i===1 && shots.length>1 && /fall|collapse|same framing/.test((sh.title+' '+sh.body).toLowerCase()))pos=[frontX,height*.32,frontZ];
+  else if(sh.kind==='close')pos=[targets[i][0]+(i===4?-.15:.15),Math.max(.35,targets[i][1]+.25),frontZ-depth*.42];
+  else if(sh.kind==='low')pos=[frontX-.7,.28,frontZ-depth*.18];
+  else if(sh.kind==='two')pos=[frontX+width*.55,.48,frontZ-depth*.38];
+  else pos=[frontX,height*.32,frontZ];
+  const target=targets[i];const old=camera.position.clone(),oldQ=camera.quaternion.clone();aiLookShot(pos,target);const q=camera.quaternion.toArray();camera.position.copy(old);camera.quaternion.copy(oldQ);
+  return {name:`${String(sh.number).padStart(2,'0')} · ${sh.title}`,position:pos,quaternion:q,focalLength:sh.kind==='close'?85:sh.kind==='two'?50:35,sensorFormat:'alexa35',aperture:sh.kind==='close'?2.8:5.6,focusDistance:sh.kind==='close'?1.2:4,dofEnabled:false,blurStrength:.018,duration:sh.duration,transition:sh.transition,sceneBuilder:{number:sh.number,kind:sh.kind,time:sh.time,description:sh.body.trim()}};
+ });
+}
+function aiBuildScene(){
+ const prompt=document.getElementById('scenePrompt').value.trim();if(!prompt){toast('Paste the full director prompt first');return}
+ const shots=aiParseShots(prompt);if(!shots.length){toast('No SHOT headings found. Use lines like SHOT 1 · 0:00–0:04 · TITLE');return}
+ const bounds=aiSceneBounds();const generated=aiBuildCameraShots(shots,bounds);cinematicShots=generated;selectedShotIndex=0;sequenceTime=0;sequencePlaying=false;refreshSequenceUI();
+ aiScenePlan={format:'VirtualCinematographerAIScenePlan',version:1,title:'MILO & MIMI · Prompt-built scene',aspectRatio:'9:16',prompt,references:aiSceneRefs,environmentBounds:{min:bounds.box.min.toArray(),max:bounds.box.max.toArray(),center:bounds.center.toArray(),size:bounds.size.toArray()},shots:generated,limitations:'Camera blocking and shot breakdown are generated from prompt text. Character reference images are recorded as local filenames only; this browser module does not synthesize rigged 3D characters or call a cloud generative model.'};
+ document.getElementById('sceneShotCount').textContent=String(generated.length);
+ document.getElementById('sceneShotSummary').textContent=generated.map((s,i)=>`${i+1}. ${s.name}\n   ${s.duration.toFixed(1)} s · ${s.sceneBuilder.kind} · ${s.transition}`).join('\n\n');
+ document.getElementById('sceneBuilderStatus').textContent=`Built ${generated.length} camera shots · ${generated.reduce((a,b)=>a+b.duration,0).toFixed(1)} sec · sequencer updated`;
+ document.getElementById('shotTransition').value='cut';document.getElementById('shotList').value='0';applyCameraShot(generated[0]);setMode('cinematic');toast('Scene plan built · camera sequence ready');
+}
+document.getElementById('buildScenePlan').onclick=aiBuildScene;
+document.getElementById('scenePreviewShots').onclick=()=>{if(!cinematicShots.length){toast('Build the scene plan first');return}selectedShotIndex=0;applyCameraShot(cinematicShots[0]);refreshSequenceUI();setMode('cinematic')};
+document.getElementById('sceneExportPlan').onclick=()=>{if(!aiScenePlan){toast('Build the scene plan first');return}const blob=new Blob([JSON.stringify(aiScenePlan,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='milo-mimi-ai-scene-plan.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Scene plan exported')};
 document.getElementById('shotDuration').addEventListener('input',e=>document.getElementById('shotDurationLabel').textContent=Number(e.target.value).toFixed(1));
 document.getElementById('captureShot').onclick=addCameraShot;
 document.getElementById('replaceShot').onclick=()=>{

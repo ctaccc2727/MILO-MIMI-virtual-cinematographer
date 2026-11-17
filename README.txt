@@ -1,23 +1,13 @@
-VIRTUAL CINEMATOGRAPHER — FINAL CUMULATIVE PACKAGE V29
+VIRTUAL CINEMATOGRAPHER V30 — AI SCENE BUILDER
 
-This is the latest cumulative build, based on the previously working V28 project.
-It retains the existing project modules and adds the V29 studio reflection environment
-and neutral silver material tints for Metal and Chrome.
+Install: replace index.html and README.txt in the GitHub Pages repository root. Keep .nojekyll.
 
-INSTALLATION
-1. Extract this ZIP.
-2. In the GitHub repository root, replace only index.html and README.txt.
-3. Keep the existing .nojekyll file in the repository.
-4. Commit the changes and wait for GitHub Pages to publish.
-5. Open the site and press Ctrl+F5.
+New module: AI Scene Builder. Paste a director prompt containing headings like:
+SHOT 1 · 0:00–0:04 · TITLE
+SHOT 2 · 0:04–0:07 · TITLE
 
-IMPORTANT
-- Upload index.html and README.txt only.
-- Do NOT upload check.mjs; it is a local validation helper.
-- Keep the previous ZIP as a backup until the new build is confirmed in the browser.
+Click Build scene & camera sequence. The module parses shot headings, durations and basic camera intent, creates camera entries, and updates the existing Cinematic Sequencer. Export scene plan downloads a JSON breakdown with the prompt, shot descriptions, reference filenames and environment bounds.
 
-VALIDATION
-- ZIP integrity checked.
-- Main JavaScript module syntax checked with Node.js.
-- Not browser-tested on the user's device. Visual behavior of Metal/Chrome reflections
-  must be confirmed in the live site.
+Important capability boundary: this is a local deterministic prompt parser and camera-blocking assistant. It does not call an external generative AI model and does not create rigged 3D character assets from still images. Character reference images must still be supplied to the video generator; rigged character models require separate 3D assets.
+
+Existing V29 functions are retained. Imported GLB models remain source assets and should be re-imported after loading a project if not embedded in the project archive.
