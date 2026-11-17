@@ -1,18 +1,11 @@
-VIRTUAL CINEMATOGRAPHER V21 — SCENE RESTORE FIX
+VIRTUAL CINEMATOGRAPHER V22 — RENDER INITIALIZATION FIX
 
-Based on V20. Retains all prior features:
-- Environment Studio and imported 3D models
-- Character Animation Studio and Custom Timeline
-- Motion Studio and Root Motion
-- Cinematic Sequencer
-- Complete Project ZIP save/load
-- Render Studio WebM recording and quality profiles
-- V20 real-time shadows and color processing
+Based on V21. Retains all previous studios and features.
 
-V21 fix:
-- Corrected initialization order for the V20 render quality engine.
-- Initial shadow/color settings are now applied only after the scene and key light exist.
-- Prevents an early JavaScript reference error from stopping 3D scene initialization.
+V22 fix:
+- Fixed a JavaScript temporal-dead-zone error in Render Quality initialization.
+- The GPU anisotropy capability is now read inside renderApplyQuality(), after module initialization reaches the function call.
+- This prevents the error "Cannot access 'renderMaxAnisotropy' before initialization" from aborting 3D scene startup.
 
 Install:
 1. Extract this ZIP.
